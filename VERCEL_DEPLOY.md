@@ -104,7 +104,24 @@ Project Settings → **API**：
 
 将仓库连接到 Vercel（GitHub / GitLab 等）。
 
-### 6.2 配置环境变量
+### 6.2 Vercel 项目设置（解决平台 404 NOT_FOUND）
+
+在 Vercel → Project → **Settings** → **General** / **Build & Development Settings**：
+
+| 设置项 | 正确值 | 常见错误 |
+|---|---|---|
+| **Framework Preset** | `Next.js` | 选 Other / Static |
+| **Root Directory** | **留空**（仓库根目录） | 填 `src`、`app`、子文件夹 |
+| **Build Command** | `npm run build` | 空白或 `next export` |
+| **Output Directory** | **留空**（默认，由 Vercel 处理） | 填 `.next`、`out`、`public` → **会导致全站 404** |
+| **Install Command** | `npm ci` 或留空 | — |
+
+> 本仓库结构：根目录含 `package.json`、`next.config.mjs`、`src/app/`、`prisma/`、`public/`。  
+> **Root Directory 必须为仓库根**，不要指向 `src`。
+
+**不要**设置环境变量 `NODE_ENV=development`（见第 11 节）。
+
+### 6.3 配置环境变量
 
 Vercel Project → **Settings** → **Environment Variables**：
 
@@ -125,7 +142,7 @@ Vercel Project → **Settings** → **Environment Variables**：
 
 > ⚠️ **不要**在 Vercel 里手动设置 `NODE_ENV=development`。Vercel 构建时会自动使用 `production`；若手动设为 `development`，会出现 `Html should not be imported outside of pages/_document` 并导致 build 失败。
 
-### 6.3 构建命令
+### 6.4 构建命令
 
 Vercel 默认即可：
 
@@ -141,7 +158,7 @@ npm run db:seed
 
 （或在 Supabase SQL Editor 手动执行 migration SQL。）
 
-### 6.4 自定义域名
+### 6.5 自定义域名
 
 1. Vercel → **Domains** → 添加你的域名。
 2. 按提示配置 DNS。
