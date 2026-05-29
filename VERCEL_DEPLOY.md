@@ -131,7 +131,7 @@ Vercel Project → **Settings** → **Environment Variables**：
 | `DIRECT_URL` | Supabase **Session** pooler / Direct（`:5432`） | `prisma migrate deploy` |
 | `AUTH_SECRET` | `openssl rand -base64 48` | ≥32 字符 |
 | `AUTH_COOKIE_SECURE` | `true` | HTTPS Cookie |
-| `NEXT_PUBLIC_SITE_URL` | `https://你的自定义域名` | **强烈建议绑定自定义域名** |
+| `NEXT_PUBLIC_SITE_URL` | `https://xiaolinmlp.com` | 正式域名（**勿用 `*.vercel.app`**） |
 | `NEXT_TELEMETRY_DISABLED` | `1` | 关闭遥测 |
 | `STORAGE_DRIVER` | `supabase` | Vercel 未设时也会默认 supabase |
 | `SUPABASE_URL` | Project URL | |
@@ -160,9 +160,9 @@ npm run db:seed
 
 ### 6.5 自定义域名
 
-1. Vercel → **Domains** → 添加你的域名。
+1. Vercel → **Domains** → 添加 `xiaolinmlp.com`（及 `www` 可选）。
 2. 按提示配置 DNS。
-3. 将 `NEXT_PUBLIC_SITE_URL` 改为 `https://你的域名`。
+3. 确认 `NEXT_PUBLIC_SITE_URL=https://xiaolinmlp.com`（当前线上正式域名）。
 4. 重新 Deploy。
 
 **不要用 `*.vercel.app` 作为长期生产入口**（Cookie、图片白名单、大陆访问均不理想）。

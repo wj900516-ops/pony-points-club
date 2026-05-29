@@ -12,9 +12,11 @@ export type NavUser = {
 export default function NavBarClient({
   user,
   staff,
+  hasBoundBoss = false,
 }: {
   user: NavUser | null;
   staff: boolean;
+  hasBoundBoss?: boolean;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -24,12 +26,20 @@ export default function NavBarClient({
 
   const links = (
     <>
+      <Link href="/" className="pony-btn-ghost w-full sm:w-auto" onClick={closeMenu}>
+        首页
+      </Link>
       <Link href="/points" className="pony-btn-ghost w-full sm:w-auto" onClick={closeMenu}>
         积分榜
       </Link>
       <Link href="/rewards" className="pony-btn-ghost w-full sm:w-auto" onClick={closeMenu}>
-        兑换商城
+        兑换展示
       </Link>
+      {hasBoundBoss && (
+        <Link href="/my-points" className="pony-btn-ghost w-full sm:w-auto" onClick={closeMenu}>
+          我的积分
+        </Link>
+      )}
       {staff && (
         <Link href="/admin" className="pony-btn-ghost w-full sm:w-auto" onClick={closeMenu}>
           后台
@@ -42,7 +52,7 @@ export default function NavBarClient({
     <header className="sticky top-0 z-30 border-b border-white/50 bg-white/70 backdrop-blur">
       <nav className="mx-auto max-w-6xl px-4 py-3">
         <div className="flex items-center justify-between gap-2">
-          <Link href="/points" className="flex min-w-0 items-center gap-2">
+          <Link href="/" className="flex min-w-0 items-center gap-2">
             <span className="text-xl shrink-0">🌈</span>
             <span className="truncate bg-pony-gradient bg-clip-text text-base font-extrabold text-transparent sm:text-lg">
               Pony Points Club

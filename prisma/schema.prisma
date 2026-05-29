@@ -18,6 +18,21 @@ enum Role {
   VIEWER
 }
 
+// 积分流水类型（Phase 2）
+enum TransactionType {
+  PURCHASE // 固定档位消费（49.9/188/388）
+  MANUAL_ADD // 管理员自定义增加
+  MANUAL_DEDUCT // 管理员自定义扣除
+  REDEMPTION // 后台兑换扣分
+  REVERSAL // 撤销生成的反向流水
+}
+
+// 流水状态（Phase 2）
+enum TransactionStatus {
+  ACTIVE // 有效，计入 Boss.totalPoints
+  VOIDED // 已撤销/作废，不计入有效积分
+}
+
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
@@ -28,7 +43,15 @@ model User {
   updatedAt    DateTime @updatedAt
 
   // 由该用户创建的积分流水
-  transactions PointTransaction[] @relation("CreatedBy")
+  transactions       PointTransaction[] @relation("TxCreatedBy")
+  // 由该用户撤销的积分流水
+  voidedTransactions PointTransaction[] @relation("TxVoidedBy")
+  // 绑定到的积分档案（一对一，可为空）
+  boss               Boss?              @relation("BossAccount")
+  // 由该用户操作的兑换
+  redemptions        RewardRedemption[] @relation("RedemptionCreatedBy")
+  // 该用户产生的审计日志
+  auditLogs          AuditLog[]         @relation("AuditOperator")
 
   @@map("users")
 }
@@ -36,33 +59,73 @@ model User {
 model Boss {
   id          String   @id @default(cuid())
   name        String
-  // 总积分，支持小数（0.2 / 1 / 2 累加）
+  // 总积分，支持小数（0.2 / 1 / 2 累加）；始终等于有效(ACTIVE)流水之和
   totalPoints Decimal  @default(0) @db.Decimal(12, 2)
   // false = 已归档，/points 不展示，历史流水保留
   isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+
+  // 绑定的用户账号（一对一，可为空）
+  userId String? @unique
+  user   User?   @relation("BossAccount", fields: [userId], references: [id], onDelete: SetNull)
+
+  // 归档元数据（Phase 2）
+  archivedAt    DateTime?
+  archivedById  String?
+  archiveReason String?
+
+  // 软删除元数据（Phase 2，预留；当前 UI 不提供硬删除）
+  deletedAt    DateTime?
+  deletedById  String?
+  deleteReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   transactions PointTransaction[]
+  redemptions  RewardRedemption[]
 
   @@map("bosses")
 }
 
 model PointTransaction {
-  id          String   @id @default(cuid())
-  bossId      String
-  // 价格档位：49.90 / 188.00 / 388.00
-  priceTier   Decimal  @db.Decimal(10, 2)
-  // 本次增加的积分：0.20 / 1.00 / 2.00
-  pointsAdded Decimal  @db.Decimal(10, 2)
-  createdById String
+  id     String          @id @default(cuid())
+  bossId String
+  type   TransactionType @default(PURCHASE)
+
+  // 价格档位：49.90 / 188.00 / 388.00；自定义/兑换/撤销可为空
+  priceTier Decimal? @db.Decimal(10, 2)
+
+  // 兼容旧字段：本次「增加」的积分（旧数据保留；新数据 = pointsDelta）
+  pointsAdded Decimal @db.Decimal(10, 2)
+  // Phase 2 规范字段：带符号积分变化，正=增加，负=扣除
+  pointsDelta Decimal @default(0) @db.Decimal(10, 2)
+
+  status TransactionStatus @default(ACTIVE)
+
   note        String?
+  createdById String
   createdAt   DateTime @default(now())
 
-  boss      Boss @relation(fields: [bossId], references: [id], onDelete: Cascade)
-  createdBy User @relation("CreatedBy", fields: [createdById], references: [id])
+  // 撤销信息
+  voidedAt    DateTime?
+  voidedById  String?
+  voidReason  String?
+
+  // 反向流水自关联：reversedTransactionId 指向被撤销的原始流水
+  reversedTransactionId String?           @unique
+  reversalOf            PointTransaction? @relation("TxReversal", fields: [reversedTransactionId], references: [id])
+  reversal              PointTransaction? @relation("TxReversal")
+
+  // 兑换关联（REDEMPTION 类型）
+  rewardItemId String?
+  rewardItem   RewardItem? @relation(fields: [rewardItemId], references: [id], onDelete: SetNull)
+
+  boss      Boss  @relation(fields: [bossId], references: [id], onDelete: Cascade)
+  createdBy User  @relation("TxCreatedBy", fields: [createdById], references: [id])
+  voidedBy  User? @relation("TxVoidedBy", fields: [voidedById], references: [id], onDelete: SetNull)
 
   @@index([bossId, createdAt])
+  @@index([status])
   @@map("point_transactions")
 }
 
@@ -70,7 +133,7 @@ model RewardItem {
   id             String   @id @default(cuid())
   name           String
   description    String?
-  // 图片地址：建议存阿里云 OSS / 腾讯云 COS 的 URL
+  // 图片地址：建议存阿里云 OSS / 腾讯云 COS / Supabase 的 URL
   imageUrl       String?
   pointsRequired Decimal  @db.Decimal(10, 2)
   stock          Int      @default(0)
@@ -78,16 +141,55 @@ model RewardItem {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
+  redemptions  RewardRedemption[]
+  transactions PointTransaction[]
+
   @@map("reward_items")
 }
 
-// 第二阶段：兑换记录（本版仅建表预留，不在 UI 中使用）
+// 兑换记录（Phase 2 完善：后台兑换流程使用）
 model RewardRedemption {
-  id           String   @id @default(cuid())
+  id           String  @id @default(cuid())
   rewardItemId String
-  userId       String
-  pointsSpent  Decimal  @db.Decimal(10, 2)
-  createdAt    DateTime @default(now())
+  rewardItem   RewardItem @relation(fields: [rewardItemId], references: [id], onDelete: Restrict)
 
+  // 兑换的老板（积分来源）。旧字段保留为可空以兼容历史
+  bossId String?
+  boss   Boss?  @relation(fields: [bossId], references: [id], onDelete: SetNull)
+
+  // 旧字段：兑换者用户（保留，可空）
+  userId String?
+
+  // 商品名称快照（防止商品改名/下架后历史失真）
+  rewardName  String?
+  pointsSpent Decimal @db.Decimal(10, 2)
+  quantity    Int     @default(1)
+
+  // 操作人（owner/admin）
+  createdById String?
+  createdBy   User?   @relation("RedemptionCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  note      String?
+  createdAt DateTime @default(now())
+
+  @@index([bossId, createdAt])
+  @@index([createdAt])
   @@map("reward_redemptions")
+}
+
+// 审计日志（Phase 2 新增）：老板改名/归档/恢复/绑定、角色变更等留痕
+model AuditLog {
+  id         String   @id @default(cuid())
+  action     String // BOSS_RENAME / BOSS_ARCHIVE / BOSS_RESTORE / BOSS_BIND_USER / BOSS_UNBIND_USER / ROLE_PROMOTE / ROLE_DEMOTE / POINT_VOID / REDEEM ...
+  entityType String // "Boss" | "User" | "RewardItem" | "PointTransaction"
+  entityId   String?
+  operatorId String
+  operator   User    @relation("AuditOperator", fields: [operatorId], references: [id], onDelete: Cascade)
+  // 结构化细节：{ oldName, newName, reason, email, ... }
+  detail     Json?
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
 }

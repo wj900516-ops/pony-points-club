@@ -29,6 +29,29 @@ export function getTier(key: string): PointTier | null {
   return null;
 }
 
+// 流水类型展示文案（与 Prisma enum TransactionType 对应）
+export type TransactionTypeKey =
+  | "PURCHASE"
+  | "MANUAL_ADD"
+  | "MANUAL_DEDUCT"
+  | "REDEMPTION"
+  | "REVERSAL";
+
+export const TRANSACTION_TYPE_LABEL: Record<TransactionTypeKey, string> = {
+  PURCHASE: "消费积分",
+  MANUAL_ADD: "手动增加",
+  MANUAL_DEDUCT: "手动扣除",
+  REDEMPTION: "兑换扣除",
+  REVERSAL: "撤销",
+};
+
+export function transactionTypeLabel(type: string): string {
+  return TRANSACTION_TYPE_LABEL[type as TransactionTypeKey] ?? type;
+}
+
+// 自定义调整积分的上限（单次），防止误操作输入超大数值
+export const MANUAL_ADJUST_MAX = 10000;
+
 // 把 Decimal / number / string 统一格式化成「X分」展示
 export function formatPoints(value: number | string): string {
   const n = typeof value === "string" ? parseFloat(value) : value;

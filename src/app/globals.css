@@ -20,7 +20,13 @@ body {
 }
 
 body {
-  @apply bg-pony-gradient-soft text-slate-800 min-h-screen overflow-x-hidden;
+  @apply text-slate-800 min-h-screen overflow-x-hidden;
+  /* 奶油白底 + 极淡的粉/紫角落光，避免大面积廉价渐变 */
+  background-color: #fdfbff;
+  background-image:
+    radial-gradient(60rem 60rem at 110% -10%, rgba(249, 168, 212, 0.12), transparent 60%),
+    radial-gradient(50rem 50rem at -10% 110%, rgba(125, 211, 252, 0.12), transparent 60%);
+  background-attachment: fixed;
 }
 
 @layer components {
