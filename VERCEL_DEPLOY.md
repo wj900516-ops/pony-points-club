@@ -116,13 +116,14 @@ Vercel Project → **Settings** → **Environment Variables**：
 | `AUTH_COOKIE_SECURE` | `true` | HTTPS Cookie |
 | `NEXT_PUBLIC_SITE_URL` | `https://你的自定义域名` | **强烈建议绑定自定义域名** |
 | `NEXT_TELEMETRY_DISABLED` | `1` | 关闭遥测 |
-| `NODE_ENV` | `production` | Vercel 通常自动设置 |
 | `STORAGE_DRIVER` | `supabase` | Vercel 未设时也会默认 supabase |
 | `SUPABASE_URL` | Project URL | |
 | `SUPABASE_SERVICE_ROLE_KEY` | service_role | 服务端专用 |
 | `SUPABASE_STORAGE_BUCKET` | `reward-images` | |
 | `SEED_OWNER_EMAIL` | 你的邮箱 | 仅 seed 时用 |
 | `SEED_OWNER_PASSWORD` | 强密码 | seed 时用，不可用默认值 |
+
+> ⚠️ **不要**在 Vercel 里手动设置 `NODE_ENV=development`。Vercel 构建时会自动使用 `production`；若手动设为 `development`，会出现 `Html should not be imported outside of pages/_document` 并导致 build 失败。
 
 ### 6.3 构建命令
 
@@ -214,3 +215,21 @@ SUPABASE_STORAGE_BUCKET=reward-images
 - [ ] admin 上传图片后 `/rewards` 可显示
 
 更多 QA：[`TESTING.md`](./TESTING.md)
+
+---
+
+## 11. 构建失败排查
+
+### `Html should not be imported outside of pages/_document`（/404 预渲染失败）
+
+**原因：** Vercel 环境变量里设置了 `NODE_ENV=development`（或非 `production` 的值）。
+
+**修复：**
+
+1. Vercel → **Settings** → **Environment Variables**
+2. 找到 `NODE_ENV` → **Delete**（不要手动设置，交给 Vercel 自动处理）
+3. **Redeploy** 项目
+
+本地 `.env` 里的 `NODE_ENV=development` 只用于 `npm run dev`，**不要**复制到 Vercel。
+
+参考：[Next.js non-standard NODE_ENV](https://nextjs.org/docs/messages/non-standard-node-env)
