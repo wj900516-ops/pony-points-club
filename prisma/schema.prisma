@@ -1,0 +1,91 @@
+// Pony Points Club — Prisma schema
+// PostgreSQL：本地 / VPS RDS / Supabase Postgres
+// Supabase：DATABASE_URL = Transaction pooler（Vercel 运行时）；DIRECT_URL = Session/Direct（migrate）
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  VIEWER
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  displayName  String
+  role         Role     @default(VIEWER)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // 由该用户创建的积分流水
+  transactions PointTransaction[] @relation("CreatedBy")
+
+  @@map("users")
+}
+
+model Boss {
+  id          String   @id @default(cuid())
+  name        String
+  // 总积分，支持小数（0.2 / 1 / 2 累加）
+  totalPoints Decimal  @default(0) @db.Decimal(12, 2)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  transactions PointTransaction[]
+
+  @@map("bosses")
+}
+
+model PointTransaction {
+  id          String   @id @default(cuid())
+  bossId      String
+  // 价格档位：49.90 / 188.00 / 388.00
+  priceTier   Decimal  @db.Decimal(10, 2)
+  // 本次增加的积分：0.20 / 1.00 / 2.00
+  pointsAdded Decimal  @db.Decimal(10, 2)
+  createdById String
+  note        String?
+  createdAt   DateTime @default(now())
+
+  boss      Boss @relation(fields: [bossId], references: [id], onDelete: Cascade)
+  createdBy User @relation("CreatedBy", fields: [createdById], references: [id])
+
+  @@index([bossId, createdAt])
+  @@map("point_transactions")
+}
+
+model RewardItem {
+  id             String   @id @default(cuid())
+  name           String
+  description    String?
+  // 图片地址：建议存阿里云 OSS / 腾讯云 COS 的 URL
+  imageUrl       String?
+  pointsRequired Decimal  @db.Decimal(10, 2)
+  stock          Int      @default(0)
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("reward_items")
+}
+
+// 第二阶段：兑换记录（本版仅建表预留，不在 UI 中使用）
+model RewardRedemption {
+  id           String   @id @default(cuid())
+  rewardItemId String
+  userId       String
+  pointsSpent  Decimal  @db.Decimal(10, 2)
+  createdAt    DateTime @default(now())
+
+  @@map("reward_redemptions")
+}

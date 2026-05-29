@@ -1,0 +1,51 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+/* 系统字体栈：不加载 Google Fonts，中国大陆稳定显示中文 */
+html {
+  overflow-x: hidden;
+}
+
+html,
+body {
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Microsoft YaHei", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  @apply bg-pony-gradient-soft text-slate-800 min-h-screen overflow-x-hidden;
+}
+
+@layer components {
+  .pony-card {
+    @apply rounded-xl2 bg-white/85 backdrop-blur shadow-pony border border-white/60;
+  }
+  .pony-btn {
+    @apply inline-flex min-h-[44px] items-center justify-center gap-1 rounded-full px-4 py-2.5 text-base font-medium transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .pony-btn-primary {
+    @apply pony-btn bg-pony-purpleDeep text-white hover:bg-pony-purple shadow-pony;
+  }
+  .pony-btn-pink {
+    @apply pony-btn bg-pony-pinkDeep text-white hover:bg-pony-pink;
+  }
+  .pony-btn-ghost {
+    @apply pony-btn bg-white/70 text-pony-purpleDeep hover:bg-white;
+  }
+  .pony-input {
+    @apply w-full min-h-[44px] rounded-xl border border-pony-purple/40 bg-white px-3 py-2.5 text-base outline-none focus:border-pony-purpleDeep focus:ring-2 focus:ring-pony-purple/30;
+  }
+  .pony-label {
+    @apply block text-sm font-medium text-slate-600 mb-1;
+  }
+  .pony-badge {
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold;
+  }
+}

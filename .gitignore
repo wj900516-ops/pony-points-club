@@ -1,0 +1,13 @@
+node_modules
+.next
+out
+.env
+.env.local
+*.log
+.DS_Store
+next-env.d.ts
+/coverage
+
+# 用户上传的商品图（保留目录结构）
+/public/uploads/rewards/*
+!/public/uploads/rewards/.gitkeep

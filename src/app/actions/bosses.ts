@@ -1,0 +1,58 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { prisma } from "@/lib/prisma";
+import { requireStaff, AuthError, ForbiddenError } from "@/lib/permissions";
+import { bossCreateSchema, bossUpdateSchema } from "@/lib/validations";
+import type { MutationResult } from "@/app/actions/points";
+
+async function guard(): Promise<MutationResult | null> {
+  try {
+    await requireStaff();
+    return null;
+  } catch (e) {
+    if (e instanceof AuthError) return { ok: false, error: "请先登录" };
+    if (e instanceof ForbiddenError) return { ok: false, error: "无权操作" };
+    throw e;
+  }
+}
+
+export async function createBossAction(
+  formData: FormData
+): Promise<MutationResult> {
+  const denied = await guard();
+  if (denied) return denied;
+
+  const parsed = bossCreateSchema.safeParse({ name: formData.get("name") });
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.errors[0]?.message ?? "输入有误" };
+  }
+
+  await prisma.boss.create({ data: { name: parsed.data.name } });
+  revalidatePath("/points");
+  revalidatePath("/admin");
+  return { ok: true };
+}
+
+export async function updateBossAction(
+  formData: FormData
+): Promise<MutationResult> {
+  const denied = await guard();
+  if (denied) return denied;
+
+  const parsed = bossUpdateSchema.safeParse({
+    id: formData.get("id"),
+    name: formData.get("name"),
+  });
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.errors[0]?.message ?? "输入有误" };
+  }
+
+  await prisma.boss.update({
+    where: { id: parsed.data.id },
+    data: { name: parsed.data.name },
+  });
+  revalidatePath("/points");
+  revalidatePath("/admin");
+  return { ok: true };
+}
