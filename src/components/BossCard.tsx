@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { POINT_TIER_LIST } from "@/lib/points";
 import { trimNum, formatDateTime } from "@/lib/format";
@@ -25,14 +25,17 @@ export default function BossCard({
   const [history, setHistory] = useState<HistoryRow[] | null>(null);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
+  const [submittingTier, setSubmittingTier] = useState<string | null>(null);
   const router = useRouter();
 
   async function loadHistory() {
     setLoadingHistory(true);
-    const rows = await fetchBossHistory(boss.id);
-    setHistory(rows);
-    setLoadingHistory(false);
+    try {
+      const rows = await fetchBossHistory(boss.id);
+      setHistory(rows);
+    } finally {
+      setLoadingHistory(false);
+    }
   }
 
   function toggleHistory() {
@@ -41,12 +44,14 @@ export default function BossCard({
     if (next && history === null) void loadHistory();
   }
 
-  function handleAdd(tierKey: string) {
+  async function handleAdd(tierKey: string) {
+    if (submittingTier) return;
     setMsg(null);
+    setSubmittingTier(tierKey);
     const fd = new FormData();
     fd.set("bossId", boss.id);
     fd.set("tier", tierKey);
-    startTransition(async () => {
+    try {
       const res = await addPointsAction(fd);
       if (!res.ok) {
         setMsg(res.error || "操作失败");
@@ -55,7 +60,11 @@ export default function BossCard({
       setMsg("✅ 加分成功");
       router.refresh();
       if (showHistory) await loadHistory();
-    });
+    } catch {
+      setMsg("网络异常，请稍后重试");
+    } finally {
+      setSubmittingTier(null);
+    }
   }
 
   return (
@@ -88,11 +97,11 @@ export default function BossCard({
             {POINT_TIER_LIST.map((t) => (
               <button
                 key={t.key}
-                disabled={pending}
+                disabled={submittingTier !== null}
                 onClick={() => handleAdd(t.key)}
                 className="pony-btn-pink w-full sm:w-auto"
               >
-                {pending ? (
+                {submittingTier === t.key ? (
                   <>提交中…</>
                 ) : (
                   <>
@@ -114,7 +123,7 @@ export default function BossCard({
       </div>
 
       {showHistory && (
-        <div className="mt-3 overflow-x-auto rounded-xl border border-pony-purple/20 bg-white/70 p-3">
+        <div className="mt-3 overflow-hidden rounded-xl border border-pony-purple/20 bg-white/70 p-3">
           {loadingHistory && (
             <p className="text-sm text-slate-400">加载中…</p>
           )}
@@ -122,27 +131,59 @@ export default function BossCard({
             <p className="text-sm text-slate-400">暂无积分记录</p>
           )}
           {!loadingHistory && history && history.length > 0 && (
-            <ul className="space-y-1.5 text-sm">
-              {history.map((h) => (
-                <li
-                  key={h.id}
-                  className="flex min-w-[280px] flex-col gap-1 border-b border-dashed border-slate-100 pb-2 last:border-0 sm:min-w-0 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-2 sm:gap-y-0.5 sm:pb-1.5"
-                >
-                  <span className="break-all font-mono text-xs text-slate-500 sm:text-sm">
-                    {formatDateTime(h.createdAt)}
-                  </span>
-                  <span className="hidden text-slate-300 sm:inline">|</span>
-                  <span className="text-slate-600">{trimNum(h.priceTier)}</span>
-                  <span className="hidden text-slate-300 sm:inline">|</span>
-                  <span className="font-semibold text-pony-pinkDeep">
-                    +{trimNum(h.pointsAdded)}分
-                  </span>
-                  <span className="text-xs text-slate-400 sm:ml-auto">
-                    {h.createdBy}
-                  </span>
-                </li>
-              ))}
-            </ul>
+            <>
+              {/* 移动端：纵向卡片，避免横向溢出 */}
+              <ul className="space-y-3 md:hidden">
+                {history.map((h) => (
+                  <li
+                    key={h.id}
+                    className="space-y-1 border-b border-dashed border-slate-100 pb-3 last:border-0 last:pb-0"
+                  >
+                    <div className="text-xs text-slate-500">
+                      <span className="text-slate-400">时间 </span>
+                      <span className="break-words font-mono">
+                        {formatDateTime(h.createdAt)}
+                      </span>
+                    </div>
+                    <div className="text-sm text-slate-600">
+                      <span className="text-slate-400">档位 </span>
+                      {trimNum(h.priceTier)}
+                    </div>
+                    <div className="text-sm font-semibold text-pony-pinkDeep">
+                      <span className="font-normal text-slate-400">积分 </span>
+                      +{trimNum(h.pointsAdded)}分
+                    </div>
+                    <div className="text-xs text-slate-400">
+                      <span>操作人 </span>
+                      <span className="break-words">{h.createdBy}</span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+
+              {/* md+：横向列表 */}
+              <ul className="hidden space-y-1.5 text-sm md:block">
+                {history.map((h) => (
+                  <li
+                    key={h.id}
+                    className="flex flex-wrap items-center gap-x-2 gap-y-0.5 border-b border-dashed border-slate-100 pb-1.5 last:border-0"
+                  >
+                    <span className="break-words font-mono text-xs text-slate-500 sm:text-sm">
+                      {formatDateTime(h.createdAt)}
+                    </span>
+                    <span className="text-slate-300">|</span>
+                    <span className="text-slate-600">{trimNum(h.priceTier)}</span>
+                    <span className="text-slate-300">|</span>
+                    <span className="font-semibold text-pony-pinkDeep">
+                      +{trimNum(h.pointsAdded)}分
+                    </span>
+                    <span className="break-words text-xs text-slate-400 md:ml-auto">
+                      {h.createdBy}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </>
           )}
         </div>
       )}

@@ -29,6 +29,7 @@ export default async function AdminPage() {
     id: b.id,
     name: b.name,
     totalPoints: b.totalPoints.toString(),
+    isActive: b.isActive,
   }));
 
   const rewardData = rewards.map((r) => ({

@@ -38,6 +38,8 @@ model Boss {
   name        String
   // 总积分，支持小数（0.2 / 1 / 2 累加）
   totalPoints Decimal  @default(0) @db.Decimal(12, 2)
+  // false = 已归档，/points 不展示，历史流水保留
+  isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

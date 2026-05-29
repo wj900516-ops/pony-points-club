@@ -37,6 +37,7 @@ export async function addPointsAction(
     where: { id: parsed.data.bossId },
   });
   if (!boss) return { ok: false, error: "老板不存在" };
+  if (!boss.isActive) return { ok: false, error: "该老板已归档，无法加分" };
 
   // 事务：写流水 + 累加总分（金额由服务端档位表决定，绝不信任前端数值）
   await prisma.$transaction([

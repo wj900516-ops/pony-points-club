@@ -56,3 +56,30 @@ export async function updateBossAction(
   revalidatePath("/admin");
   return { ok: true };
 }
+
+export async function setBossActiveAction(
+  formData: FormData
+): Promise<MutationResult> {
+  const denied = await guard();
+  if (denied) return denied;
+
+  const id = formData.get("id");
+  const isActiveRaw = formData.get("isActive");
+  if (typeof id !== "string" || !id) {
+    return { ok: false, error: "参数有误" };
+  }
+  if (isActiveRaw !== "true" && isActiveRaw !== "false") {
+    return { ok: false, error: "参数有误" };
+  }
+
+  const boss = await prisma.boss.findUnique({ where: { id } });
+  if (!boss) return { ok: false, error: "老板不存在" };
+
+  await prisma.boss.update({
+    where: { id },
+    data: { isActive: isActiveRaw === "true" },
+  });
+  revalidatePath("/points");
+  revalidatePath("/admin");
+  return { ok: true };
+}

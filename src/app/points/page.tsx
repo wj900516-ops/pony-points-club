@@ -10,6 +10,7 @@ export default async function PointsPage() {
   const staff = !!user && isStaff(user.role);
 
   const bosses = await prisma.boss.findMany({
+    where: { isActive: true },
     orderBy: [{ totalPoints: "desc" }, { createdAt: "asc" }],
   });
 
