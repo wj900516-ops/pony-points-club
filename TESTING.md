@@ -181,6 +181,18 @@ npm run test:url-whitelist
 - [ ] `npm run test:url-whitelist` 通过
 - [ ] 390 / 820 / 1440 无横向溢出
 - [ ] 图片上传 Supabase 仍正常
+# Boss create/delete QA
+
+1. Log in as owner/admin and open `/admin`.
+2. In Boss management, use "添加老板" with an empty name. Expected: Chinese error.
+3. Add a boss with a name and optional note. Expected: boss appears with `0` points, `正常` badge, and audit log contains `BOSS_CREATE`.
+4. Open `/points`. Expected: active non-deleted boss appears.
+5. Delete the boss from `/admin`, enter a required reason, and tick the confirmation box. Expected: boss stays visible in admin with `已删除` badge and audit log contains `BOSS_DELETE`.
+6. Open `/points`. Expected: deleted boss is hidden.
+7. Try adding points or redeeming against a deleted boss by stale UI/request. Expected: Chinese error; no point/redemption record is created.
+8. If the deleted boss is bound to a viewer, open `/my-points` as that user. Expected: `该积分档案已停用，请联系管理员`.
+9. Click `恢复` in `/admin`. Expected: deleted fields clear, audit log contains `BOSS_RESTORE`, and if active the boss appears on `/points` again.
+
 # P3-A auth tests
 
 Run:

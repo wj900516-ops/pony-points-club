@@ -4,8 +4,10 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
 export type AuditAction =
+  | "BOSS_CREATE"
   | "BOSS_RENAME"
   | "BOSS_ARCHIVE"
+  | "BOSS_DELETE"
   | "BOSS_RESTORE"
   | "BOSS_BIND_USER"
   | "BOSS_UNBIND_USER"

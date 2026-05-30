@@ -41,6 +41,8 @@ export default async function AdminPage() {
     isActive: b.isActive,
     boundEmail: b.user?.email ?? null,
     archiveReason: b.archiveReason ?? null,
+    deletedAt: b.deletedAt?.toISOString() ?? null,
+    deleteReason: b.deleteReason ?? null,
   }));
 
   const rewardData = rewards.map((r) => ({
@@ -62,7 +64,7 @@ export default async function AdminPage() {
 
   // 兑换管理用：活跃老板 + 上架商品
   const activeBosses = bossData
-    .filter((b) => b.isActive)
+    .filter((b) => b.isActive && !b.deletedAt)
     .map((b) => ({ id: b.id, name: b.name, totalPoints: b.totalPoints }));
   const activeRewards = rewardData
     .filter((r) => r.isActive)

@@ -12,7 +12,7 @@ export default async function PointsPage() {
   const owner = !!user && isOwner(user.role);
 
   const bosses = await prisma.boss.findMany({
-    where: { isActive: true },
+    where: { isActive: true, deletedAt: null },
     orderBy: [{ totalPoints: "desc" }, { createdAt: "asc" }],
     include: { user: { select: { email: true } } },
   });

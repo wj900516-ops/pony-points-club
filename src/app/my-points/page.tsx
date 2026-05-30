@@ -34,6 +34,20 @@ export default async function MyPointsPage() {
             先去看看兑换商城 →
           </Link>
         </div>
+      ) : boss.deletedAt ? (
+        <div className="pony-card p-8 text-center">
+          <p className="text-slate-500">该积分档案已停用，请联系管理员</p>
+          <Link href="/rewards" className="pony-btn-ghost mt-4 inline-flex">
+            去看看兑换商城 →
+          </Link>
+        </div>
+      ) : !boss.isActive ? (
+        <div className="pony-card p-8 text-center">
+          <p className="text-slate-500">该积分档案暂未公开，请联系管理员</p>
+          <Link href="/rewards" className="pony-btn-ghost mt-4 inline-flex">
+            去看看兑换商城 →
+          </Link>
+        </div>
       ) : (
         <div className="max-w-md">
           <BossCard

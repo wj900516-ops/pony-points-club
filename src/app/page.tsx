@@ -13,7 +13,7 @@ export default async function Home() {
       orderBy: { createdAt: "desc" },
       take: 4,
     }),
-    prisma.boss.count({ where: { isActive: true } }),
+    prisma.boss.count({ where: { isActive: true, deletedAt: null } }),
   ]);
 
   return (

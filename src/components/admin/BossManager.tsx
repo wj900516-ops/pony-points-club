@@ -1,15 +1,17 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { trimNum } from "@/lib/format";
 import {
-  createBossAction,
-  updateBossAction,
   archiveBossAction,
-  restoreBossAction,
   bindBossUserAction,
+  createBossAction,
+  deleteBossAction,
+  restoreBossAction,
   unbindBossUserAction,
+  updateBossAction,
 } from "@/app/actions/bosses";
 import { fetchBindableUsers, type BindableUser } from "@/app/actions/users";
 
@@ -20,9 +22,12 @@ interface BossRow {
   isActive: boolean;
   boundEmail: string | null;
   archiveReason: string | null;
+  deletedAt: string | null;
+  deleteReason: string | null;
 }
 
 type Result = { ok: boolean; error?: string };
+type Mode = null | "rename" | "archive" | "delete" | "bind";
 
 const ROLE_LABEL: Record<string, string> = {
   OWNER: "主理人",
@@ -35,12 +40,17 @@ export default function BossManager({ bosses }: { bosses: BossRow[] }) {
   const [pending, startTransition] = useTransition();
   const [msg, setMsg] = useState<string | null>(null);
   const [newName, setNewName] = useState("");
+  const [newNote, setNewNote] = useState("");
   const [query, setQuery] = useState("");
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return bosses;
-    return bosses.filter((b) => b.name.toLowerCase().includes(q));
+    return bosses.filter(
+      (b) =>
+        b.name.toLowerCase().includes(q) ||
+        b.boundEmail?.toLowerCase().includes(q)
+    );
   }, [bosses, query]);
 
   function run(action: () => Promise<Result>, after?: () => void) {
@@ -50,7 +60,7 @@ export default function BossManager({ bosses }: { bosses: BossRow[] }) {
         const res = await action();
         if (!res.ok) setMsg(res.error || "操作失败");
         else {
-          setMsg("✅ 已保存");
+          setMsg("已保存");
           after?.();
           router.refresh();
         }
@@ -61,42 +71,64 @@ export default function BossManager({ bosses }: { bosses: BossRow[] }) {
   }
 
   function add() {
-    if (!newName.trim()) return;
+    if (!newName.trim()) {
+      setMsg("请填写老板名字");
+      return;
+    }
     const fd = new FormData();
     fd.set("name", newName.trim());
-    run(() => createBossAction(fd), () => setNewName(""));
+    fd.set("note", newNote.trim());
+    run(() => createBossAction(fd), () => {
+      setNewName("");
+      setNewNote("");
+    });
   }
 
   return (
-    <div className="pony-card p-4">
-      <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-        <input
-          className="pony-input w-full sm:max-w-xs"
-          placeholder="新老板名字"
-          value={newName}
-          onChange={(e) => setNewName(e.target.value)}
-        />
-        <button className="pony-btn-primary w-full sm:w-auto" onClick={add} disabled={pending}>
-          + 新增老板
-        </button>
+    <div className="space-y-4">
+      <div className="pony-card p-4">
+        <h3 className="mb-3 text-base font-bold text-slate-700">添加老板</h3>
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_1fr_auto]">
+          <input
+            className="pony-input"
+            placeholder="输入老板名字"
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+          />
+          <input
+            className="pony-input"
+            placeholder="备注（可选，请确认是否重复）"
+            value={newNote}
+            onChange={(e) => setNewNote(e.target.value)}
+          />
+          <button
+            type="button"
+            className="pony-btn-primary min-h-[44px] w-full md:w-auto"
+            onClick={add}
+            disabled={pending}
+          >
+            添加老板
+          </button>
+        </div>
+        {msg && <p className="mt-3 text-sm text-pony-purpleDeep">{msg}</p>}
       </div>
 
-      <input
-        className="pony-input mb-3 w-full"
-        placeholder="🔍 搜索老板名字…"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-      />
+      <div className="pony-card p-4">
+        <input
+          className="pony-input mb-3 w-full"
+          placeholder="搜索老板名字或绑定账号"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
 
-      {msg && <p className="mb-2 text-sm text-pony-purpleDeep">{msg}</p>}
-
-      <div className="space-y-2">
-        {filtered.map((b) => (
-          <BossManagerRow key={b.id} boss={b} pending={pending} run={run} />
-        ))}
-        {filtered.length === 0 && (
-          <p className="py-3 text-sm text-slate-400">没有匹配的老板</p>
-        )}
+        <div className="space-y-3">
+          {filtered.map((b) => (
+            <BossManagerRow key={b.id} boss={b} pending={pending} run={run} />
+          ))}
+          {filtered.length === 0 && (
+            <p className="py-3 text-sm text-slate-400">没有匹配的老板</p>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -111,18 +143,19 @@ function BossManagerRow({
   pending: boolean;
   run: (action: () => Promise<Result>, after?: () => void) => void;
 }) {
-  const [mode, setMode] = useState<null | "rename" | "archive" | "bind">(null);
+  const [mode, setMode] = useState<Mode>(null);
   const [editName, setEditName] = useState(boss.name);
   const [reason, setReason] = useState("");
-
-  // binding
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [userQuery, setUserQuery] = useState("");
   const [results, setResults] = useState<BindableUser[]>([]);
   const [searching, setSearching] = useState(false);
+  const deleted = !!boss.deletedAt;
 
   function close() {
     setMode(null);
     setReason("");
+    setConfirmDelete(false);
     setResults([]);
     setUserQuery("");
   }
@@ -137,54 +170,69 @@ function BossManagerRow({
   }
 
   return (
-    <div className="rounded-xl border border-slate-100 bg-white/60 p-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className={`font-medium ${boss.isActive ? "text-slate-700" : "text-slate-400"}`}>
-          {boss.name}
-        </span>
-        {!boss.isActive && (
-          <span className="pony-badge bg-slate-100 text-slate-500">已归档</span>
-        )}
-        <span className="pony-badge bg-pony-purple/15 text-pony-purpleDeep">
-          {trimNum(boss.totalPoints)}分
-        </span>
-        {boss.boundEmail && (
-          <span className="pony-badge bg-pony-sky/30 text-pony-skyDeep">
-            👤 {boss.boundEmail}
-          </span>
-        )}
+    <div className="rounded-xl border border-slate-100 bg-white/70 p-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className={`font-medium ${deleted ? "text-slate-400" : "text-slate-700"}`}>
+              {boss.name}
+            </span>
+            <StatusBadge boss={boss} />
+            <span className="pony-badge bg-pony-purple/15 text-pony-purpleDeep">
+              {trimNum(boss.totalPoints)}分
+            </span>
+          </div>
+          {boss.boundEmail && (
+            <p className="mt-1 break-all text-xs text-slate-500">
+              已绑定账号：{boss.boundEmail}
+            </p>
+          )}
+          {!boss.isActive && boss.archiveReason && !deleted && (
+            <p className="mt-1 text-xs text-slate-400">归档原因：{boss.archiveReason}</p>
+          )}
+          {deleted && boss.deleteReason && (
+            <p className="mt-1 text-xs text-rose-500">删除原因：{boss.deleteReason}</p>
+          )}
+        </div>
       </div>
 
-      {!boss.isActive && boss.archiveReason && (
-        <p className="mt-1 text-xs text-slate-400">归档原因：{boss.archiveReason}</p>
-      )}
-
-      <div className="mt-2 flex flex-wrap gap-2">
-        <button
-          className="pony-btn-ghost h-9 min-h-0 px-3 py-1 text-sm"
-          onClick={() => {
-            setMode(mode === "rename" ? null : "rename");
-            setEditName(boss.name);
-          }}
-        >
-          改名
-        </button>
-        <button
-          className="pony-btn-ghost h-9 min-h-0 px-3 py-1 text-sm"
-          onClick={() => setMode(mode === "bind" ? null : "bind")}
-        >
-          {boss.boundEmail ? "改绑/解绑" : "绑定账号"}
-        </button>
-        {boss.isActive ? (
-          <button
-            className="pony-btn-ghost h-9 min-h-0 px-3 py-1 text-sm"
-            onClick={() => setMode(mode === "archive" ? null : "archive")}
-          >
-            归档
-          </button>
-        ) : (
-          <button
-            className="pony-btn-ghost h-9 min-h-0 px-3 py-1 text-sm"
+      <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+        {!deleted && (
+          <>
+            <SmallButton onClick={() => setMode(mode === "rename" ? null : "rename")}>
+              修改名字
+            </SmallButton>
+            <SmallButton onClick={() => setMode(mode === "bind" ? null : "bind")}>
+              {boss.boundEmail ? "绑定 / 解绑账号" : "绑定账号"}
+            </SmallButton>
+            {boss.isActive ? (
+              <SmallButton onClick={() => setMode(mode === "archive" ? null : "archive")}>
+                归档
+              </SmallButton>
+            ) : (
+              <SmallButton
+                disabled={pending}
+                onClick={() => {
+                  const fd = new FormData();
+                  fd.set("id", boss.id);
+                  run(() => restoreBossAction(fd));
+                }}
+              >
+                恢复
+              </SmallButton>
+            )}
+            <button
+              type="button"
+              className="min-h-[40px] rounded-full bg-rose-50 px-3 py-2 text-sm font-medium text-rose-600 transition hover:bg-rose-100 disabled:opacity-50"
+              disabled={pending}
+              onClick={() => setMode(mode === "delete" ? null : "delete")}
+            >
+              删除
+            </button>
+          </>
+        )}
+        {deleted && (
+          <SmallButton
             disabled={pending}
             onClick={() => {
               const fd = new FormData();
@@ -192,21 +240,15 @@ function BossManagerRow({
               run(() => restoreBossAction(fd));
             }}
           >
-            恢复显示
-          </button>
+            恢复
+          </SmallButton>
         )}
       </div>
 
-      {/* 改名 */}
-      {mode === "rename" && (
-        <div className="mt-2 flex flex-wrap gap-2">
-          <input
-            className="pony-input h-9 min-h-0 flex-1 py-1 text-sm"
-            value={editName}
-            onChange={(e) => setEditName(e.target.value)}
-          />
-          <button
-            className="pony-btn-primary h-9 min-h-0 px-3 py-1 text-sm"
+      {mode === "rename" && !deleted && (
+        <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+          <input className="pony-input" value={editName} onChange={(e) => setEditName(e.target.value)} />
+          <SmallButton
             disabled={pending}
             onClick={() => {
               const fd = new FormData();
@@ -216,48 +258,73 @@ function BossManagerRow({
             }}
           >
             保存
-          </button>
-          <button className="pony-btn-ghost h-9 min-h-0 px-3 py-1 text-sm" onClick={close}>
-            取消
-          </button>
+          </SmallButton>
+          <SmallButton onClick={close}>取消</SmallButton>
         </div>
       )}
 
-      {/* 归档（必填原因）*/}
-      {mode === "archive" && (
-        <div className="mt-2 flex flex-wrap gap-2">
+      {mode === "archive" && !deleted && (
+        <ReasonPanel
+          placeholder="归档原因（必填）"
+          reason={reason}
+          pending={pending}
+          confirmLabel="确认归档"
+          onReason={setReason}
+          onCancel={close}
+          onConfirm={() => {
+            const fd = new FormData();
+            fd.set("id", boss.id);
+            fd.set("reason", reason.trim());
+            run(() => archiveBossAction(fd), close);
+          }}
+        />
+      )}
+
+      {mode === "delete" && !deleted && (
+        <div className="mt-3 rounded-lg bg-rose-50 p-3">
+          <p className="mb-2 text-sm font-medium text-rose-700">
+            删除是软删除，会停用该老板但保留积分历史和审计记录。
+          </p>
           <input
-            className="pony-input h-9 min-h-0 flex-1 py-1 text-sm"
-            placeholder="归档原因（必填）"
+            className="pony-input"
+            placeholder="删除原因（必填）"
             value={reason}
             onChange={(e) => setReason(e.target.value)}
           />
-          <button
-            className="pony-btn-pink h-9 min-h-0 px-3 py-1 text-sm"
-            disabled={pending}
-            onClick={() => {
-              const fd = new FormData();
-              fd.set("id", boss.id);
-              fd.set("reason", reason.trim());
-              run(() => archiveBossAction(fd), close);
-            }}
-          >
-            确认归档
-          </button>
-          <button className="pony-btn-ghost h-9 min-h-0 px-3 py-1 text-sm" onClick={close}>
-            取消
-          </button>
+          <label className="mt-2 flex items-center gap-2 text-sm text-rose-700">
+            <input
+              type="checkbox"
+              className="h-4 w-4"
+              checked={confirmDelete}
+              onChange={(e) => setConfirmDelete(e.target.checked)}
+            />
+            我确认要删除该老板
+          </label>
+          <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+            <button
+              type="button"
+              className="min-h-[40px] rounded-full bg-rose-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+              disabled={pending || !confirmDelete}
+              onClick={() => {
+                const fd = new FormData();
+                fd.set("id", boss.id);
+                fd.set("reason", reason.trim());
+                run(() => deleteBossAction(fd), close);
+              }}
+            >
+              确认删除
+            </button>
+            <SmallButton onClick={close}>取消</SmallButton>
+          </div>
         </div>
       )}
 
-      {/* 绑定账号 */}
-      {mode === "bind" && (
-        <div className="mt-2 rounded-lg bg-slate-50 p-2">
+      {mode === "bind" && !deleted && (
+        <div className="mt-3 rounded-lg bg-slate-50 p-2">
           {boss.boundEmail && (
-            <div className="mb-2 flex items-center justify-between gap-2 text-sm">
-              <span className="text-slate-500">已绑定：{boss.boundEmail}</span>
-              <button
-                className="pony-btn-ghost h-8 min-h-0 px-3 py-0 text-xs"
+            <div className="mb-2 flex flex-col gap-2 text-sm sm:flex-row sm:items-center sm:justify-between">
+              <span className="break-all text-slate-500">已绑定：{boss.boundEmail}</span>
+              <SmallButton
                 disabled={pending}
                 onClick={() => {
                   const fd = new FormData();
@@ -266,70 +333,117 @@ function BossManagerRow({
                 }}
               >
                 解绑
-              </button>
+              </SmallButton>
             </div>
           )}
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row">
             <input
-              className="pony-input h-9 min-h-0 flex-1 py-1 text-sm"
+              className="pony-input"
               placeholder="搜索用户邮箱 / 昵称"
               value={userQuery}
               onChange={(e) => setUserQuery(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && searchUsers()}
             />
-            <button
-              className="pony-btn-ghost h-9 min-h-0 px-3 py-1 text-sm"
-              onClick={searchUsers}
-              disabled={searching}
-            >
-              {searching ? "搜索中…" : "搜索"}
-            </button>
+            <SmallButton onClick={searchUsers} disabled={searching}>
+              {searching ? "搜索中..." : "搜索"}
+            </SmallButton>
           </div>
           <ul className="mt-2 space-y-1">
             {results.map((u) => {
-              const boundElsewhere =
-                u.boundBossName && u.boundBossName !== boss.name;
+              const boundElsewhere = u.boundBossName && u.boundBossName !== boss.name;
               const boundHere = u.boundBossName === boss.name;
               return (
-              <li
-                key={u.id}
-                className="flex flex-col gap-1 rounded-md bg-white px-2 py-1.5 text-sm sm:flex-row sm:items-center sm:justify-between"
-              >
-                <div className="min-w-0">
-                  <p className="break-all font-medium text-slate-700">{u.email}</p>
-                  <p className="text-xs text-slate-500">
-                    {u.displayName} · {ROLE_LABEL[u.role] ?? u.role}
-                    {boundElsewhere && (
-                      <span className="ml-1 text-rose-500">
-                        已绑定「{u.boundBossName}」，不可重复绑定
-                      </span>
-                    )}
-                    {boundHere && (
-                      <span className="ml-1 text-emerald-600">已绑定本老板</span>
-                    )}
-                  </p>
-                </div>
-                <button
-                  className="pony-btn-primary h-8 min-h-0 shrink-0 px-3 py-0 text-xs"
-                  disabled={pending || boundElsewhere || boundHere}
-                  onClick={() => {
-                    const fd = new FormData();
-                    fd.set("bossId", boss.id);
-                    fd.set("userId", u.id);
-                    run(() => bindBossUserAction(fd), close);
-                  }}
-                >
-                  绑定
-                </button>
-              </li>
-            );
+                <li key={u.id} className="rounded-md bg-white px-2 py-2 text-sm">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="break-all font-medium text-slate-700">{u.email}</p>
+                      <p className="text-xs text-slate-500">
+                        {u.displayName} · {ROLE_LABEL[u.role] ?? u.role}
+                        {boundElsewhere ? ` · 已绑定「${u.boundBossName}」` : ""}
+                        {boundHere ? " · 已绑定本老板" : ""}
+                      </p>
+                    </div>
+                    <SmallButton
+                      disabled={pending || !!boundElsewhere || boundHere}
+                      onClick={() => {
+                        const fd = new FormData();
+                        fd.set("bossId", boss.id);
+                        fd.set("userId", u.id);
+                        run(() => bindBossUserAction(fd), close);
+                      }}
+                    >
+                      绑定
+                    </SmallButton>
+                  </div>
+                </li>
+              );
             })}
-            {results.length === 0 && userQuery && !searching && (
-              <li className="px-2 py-1 text-xs text-slate-400">无匹配用户</li>
-            )}
           </ul>
         </div>
       )}
+    </div>
+  );
+}
+
+function StatusBadge({ boss }: { boss: BossRow }) {
+  if (boss.deletedAt) {
+    return <span className="pony-badge bg-rose-100 text-rose-600">已删除</span>;
+  }
+  if (!boss.isActive) {
+    return <span className="pony-badge bg-slate-100 text-slate-500">已归档</span>;
+  }
+  return <span className="pony-badge bg-emerald-100 text-emerald-600">正常</span>;
+}
+
+function SmallButton({
+  children,
+  onClick,
+  disabled,
+}: {
+  children: ReactNode;
+  onClick: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      className="pony-btn-ghost min-h-[40px] w-full px-3 py-2 text-sm sm:w-auto"
+      disabled={disabled}
+      onClick={onClick}
+    >
+      {children}
+    </button>
+  );
+}
+
+function ReasonPanel({
+  placeholder,
+  reason,
+  pending,
+  confirmLabel,
+  onReason,
+  onConfirm,
+  onCancel,
+}: {
+  placeholder: string;
+  reason: string;
+  pending: boolean;
+  confirmLabel: string;
+  onReason: (value: string) => void;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+      <input
+        className="pony-input"
+        placeholder={placeholder}
+        value={reason}
+        onChange={(e) => onReason(e.target.value)}
+      />
+      <SmallButton disabled={pending} onClick={onConfirm}>
+        {confirmLabel}
+      </SmallButton>
+      <SmallButton onClick={onCancel}>取消</SmallButton>
     </div>
   );
 }

@@ -44,6 +44,7 @@ export async function addPointsAction(
     where: { id: parsed.data.bossId },
   });
   if (!boss) return { ok: false, error: "老板不存在" };
+  if (boss.deletedAt) return { ok: false, error: "该老板已删除，无法加分" };
   if (!boss.isActive) return { ok: false, error: "该老板已归档，无法加分" };
 
   const delta = new Prisma.Decimal(tier.points);
@@ -102,6 +103,7 @@ export async function customAdjustAction(
 
   const boss = await prisma.boss.findUnique({ where: { id: bossId } });
   if (!boss) return { ok: false, error: "老板不存在" };
+  if (boss.deletedAt) return { ok: false, error: "该老板已删除，无法调整积分" };
   if (!boss.isActive) return { ok: false, error: "该老板已归档，无法调整积分" };
 
   const amountDec = new Prisma.Decimal(amount);

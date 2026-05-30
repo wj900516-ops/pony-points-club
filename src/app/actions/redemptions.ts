@@ -35,6 +35,8 @@ export async function redeemAction(formData: FormData): Promise<MutationResult> 
     prisma.rewardItem.findUnique({ where: { id: rewardItemId } }),
   ]);
   if (!boss) return { ok: false, error: "老板不存在" };
+  if (boss.deletedAt) return { ok: false, error: "该老板已删除，无法兑换" };
+  if (!boss.isActive) return { ok: false, error: "该老板已归档，无法兑换" };
   if (!item) return { ok: false, error: "商品不存在" };
   if (!item.isActive) return { ok: false, error: "该商品已下架，无法兑换" };
   if (item.stock < quantity) return { ok: false, error: "库存不足" };
