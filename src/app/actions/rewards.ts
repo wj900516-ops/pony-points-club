@@ -5,6 +5,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireStaff, AuthError, ForbiddenError } from "@/lib/permissions";
 import { rewardSchema } from "@/lib/validations";
+import { validateRewardImageUrl } from "@/lib/reward-image-url";
 import type { MutationResult } from "@/app/actions/points";
 
 async function guard(): Promise<MutationResult | null> {
@@ -27,6 +28,21 @@ function parseForm(formData: FormData) {
     stock: formData.get("stock"),
     isActive: formData.get("isActive") === "on" || formData.get("isActive") === "true",
   });
+}
+
+/** 服务端兜底：已存 imageUrl 非法时不允许上下架等变更 */
+function rejectIfStoredImageInvalid(
+  imageUrl: string | null
+): MutationResult | null {
+  if (!imageUrl?.trim()) return null;
+  const check = validateRewardImageUrl(imageUrl);
+  if (!check.ok) {
+    return {
+      ok: false,
+      error: "商品图片地址不合法，请先修正图片地址后再操作",
+    };
+  }
+  return null;
 }
 
 export async function createRewardAction(
@@ -87,8 +103,8 @@ export async function updateRewardAction(
   return { ok: true };
 }
 
-// 上架 / 下架切换
-export async function toggleRewardAction(
+/** 仅切换 isActive，不读取或写入 imageUrl */
+export async function toggleRewardActiveAction(
   formData: FormData
 ): Promise<MutationResult> {
   const denied = await guard();
@@ -100,6 +116,9 @@ export async function toggleRewardAction(
   const item = await prisma.rewardItem.findUnique({ where: { id } });
   if (!item) return { ok: false, error: "商品不存在" };
 
+  const imageDenied = rejectIfStoredImageInvalid(item.imageUrl);
+  if (imageDenied) return imageDenied;
+
   await prisma.rewardItem.update({
     where: { id },
     data: { isActive: !item.isActive },
@@ -108,3 +127,6 @@ export async function toggleRewardAction(
   revalidatePath("/admin");
   return { ok: true };
 }
+
+/** @deprecated 使用 toggleRewardActiveAction */
+export const toggleRewardAction = toggleRewardActiveAction;

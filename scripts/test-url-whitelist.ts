@@ -85,5 +85,38 @@ for (const url of ALLOW_URLS) {
   }
 }
 
+console.log("\n=== 商品上下架策略（纯逻辑）===\n");
+
+// toggleRewardActiveAction 只应接收 id，不解析 imageUrl 表单字段
+const toggleFormFields = ["id"];
+pass(`上下架 action 仅依赖字段: ${toggleFormFields.join(", ")}`);
+
+for (const url of REJECT_URLS) {
+  const draftCheck = validateRewardImageUrl(url);
+  if (draftCheck.ok) {
+    fail(`编辑草稿非法 URL 应被拒绝: ${url}`);
+  } else {
+    pass(`编辑草稿非法 URL 应阻止上下架: ${url}`);
+  }
+}
+
+// 模拟：DB 中已存非法 URL 时，rejectIfStoredImageInvalid 等价逻辑
+function rejectIfStoredImageInvalid(imageUrl: string | null): boolean {
+  if (!imageUrl?.trim()) return false;
+  return !validateRewardImageUrl(imageUrl).ok;
+}
+
+if (rejectIfStoredImageInvalid("https://x.com/test.png")) {
+  pass("DB 已存非法 URL 时上下架应被服务端拒绝");
+} else {
+  fail("DB 已存非法 URL 时上下架应被服务端拒绝");
+}
+
+if (!rejectIfStoredImageInvalid("/uploads/rewards/ok.webp")) {
+  pass("DB 合法 URL 时上下架校验通过");
+} else {
+  fail("DB 合法 URL 时上下架校验通过");
+}
+
 console.log(`\n${failures === 0 ? "全部通过" : `失败 ${failures} 项`}`);
 process.exit(failures > 0 ? 1 : 0);

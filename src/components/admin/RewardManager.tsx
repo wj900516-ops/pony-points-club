@@ -3,10 +3,11 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { trimNum } from "@/lib/format";
+import { validateRewardImageUrl } from "@/lib/reward-image-url";
 import {
   createRewardAction,
   updateRewardAction,
-  toggleRewardAction,
+  toggleRewardActiveAction,
 } from "@/app/actions/rewards";
 import RewardImageUpload from "@/components/admin/RewardImageUpload";
 
@@ -33,18 +34,46 @@ export default function RewardManager({ rewards }: { rewards: RewardRow[] }) {
   const [pending, startTransition] = useTransition();
   const [msg, setMsg] = useState<string | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
+  /** 编辑中的图片 URL 草稿（未保存） */
+  const [editImageDrafts, setEditImageDrafts] = useState<Record<string, string>>(
+    {}
+  );
 
   function run(action: () => Promise<{ ok: boolean; error?: string }>, after?: () => void) {
     setMsg(null);
     startTransition(async () => {
-      const res = await action();
-      if (!res.ok) setMsg(res.error || "操作失败");
-      else {
-        setMsg("✅ 已保存");
-        after?.();
-        router.refresh();
+      try {
+        const res = await action();
+        if (!res.ok) setMsg(res.error || "操作失败");
+        else {
+          setMsg("✅ 已保存");
+          after?.();
+          router.refresh();
+        }
+      } catch {
+        setMsg("网络异常，请稍后重试");
       }
     });
+  }
+
+  function rejectDraftImageUrl(reward: RewardRow): string | null {
+    if (editId !== reward.id) return null;
+    const draft = editImageDrafts[reward.id] ?? reward.imageUrl;
+    if (!draft.trim()) return null;
+    const check = validateRewardImageUrl(draft);
+    if (!check.ok) return check.error;
+    return null;
+  }
+
+  function handleToggle(reward: RewardRow) {
+    const draftError = rejectDraftImageUrl(reward);
+    if (draftError) {
+      setMsg(draftError);
+      return;
+    }
+    const fd = new FormData();
+    fd.set("id", reward.id);
+    run(() => toggleRewardActiveAction(fd));
   }
 
   return (
@@ -90,19 +119,32 @@ export default function RewardManager({ rewards }: { rewards: RewardRow[] }) {
               </div>
               <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
                 <button
+                  type="button"
                   className="pony-btn-ghost w-full sm:w-auto"
-                  onClick={() => setEditId(editId === r.id ? null : r.id)}
+                  onClick={() => {
+                    if (editId === r.id) {
+                      setEditId(null);
+                      setEditImageDrafts((prev) => {
+                        const next = { ...prev };
+                        delete next[r.id];
+                        return next;
+                      });
+                    } else {
+                      setEditId(r.id);
+                      setEditImageDrafts((prev) => ({
+                        ...prev,
+                        [r.id]: r.imageUrl,
+                      }));
+                    }
+                  }}
                 >
                   {editId === r.id ? "收起" : "编辑"}
                 </button>
                 <button
+                  type="button"
                   className="pony-btn-ghost w-full sm:w-auto"
                   disabled={pending}
-                  onClick={() => {
-                    const fd = new FormData();
-                    fd.set("id", r.id);
-                    run(() => toggleRewardAction(fd));
-                  }}
+                  onClick={() => handleToggle(r)}
                 >
                   {r.isActive ? "下架" : "上架"}
                 </button>
@@ -121,9 +163,19 @@ export default function RewardManager({ rewards }: { rewards: RewardRow[] }) {
                 }}
                 submitLabel="保存修改"
                 pending={pending}
+                onImageUrlChange={(url) =>
+                  setEditImageDrafts((prev) => ({ ...prev, [r.id]: url }))
+                }
                 onSubmit={(fd) => {
                   fd.set("id", r.id);
-                  run(() => updateRewardAction(fd), () => setEditId(null));
+                  run(() => updateRewardAction(fd), () => {
+                    setEditId(null);
+                    setEditImageDrafts((prev) => {
+                      const next = { ...prev };
+                      delete next[r.id];
+                      return next;
+                    });
+                  });
                 }}
               />
             )}
@@ -142,6 +194,7 @@ function RewardForm({
   submitLabel,
   pending,
   onSubmit,
+  onImageUrlChange,
 }: {
   initial: {
     name: string;
@@ -153,14 +206,22 @@ function RewardForm({
   submitLabel: string;
   pending: boolean;
   onSubmit: (fd: FormData, reset: () => void) => void;
+  onImageUrlChange?: (url: string) => void;
 }) {
   const [active, setActive] = useState(true);
   const [imageUrl, setImageUrl] = useState(initial.imageUrl);
 
+  function updateImageUrl(url: string) {
+    setImageUrl(url);
+    onImageUrlChange?.(url);
+  }
+
   return (
     <form
       className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2"
-      action={(fd) => {
+      onSubmit={(e) => {
+        e.preventDefault();
+        const fd = new FormData(e.currentTarget);
         fd.set("isActive", active ? "true" : "false");
         fd.set("imageUrl", imageUrl);
         onSubmit(fd, () => {
@@ -183,7 +244,7 @@ function RewardForm({
       </div>
       <div className="md:col-span-2">
         <label className="pony-label">商品图片</label>
-        <RewardImageUpload value={imageUrl} onChange={setImageUrl} />
+        <RewardImageUpload value={imageUrl} onChange={updateImageUrl} />
       </div>
       <div className="md:col-span-2">
         <label className="pony-label">
@@ -192,7 +253,7 @@ function RewardForm({
         <input
           name="imageUrlDisplay"
           value={imageUrl}
-          onChange={(e) => setImageUrl(e.target.value)}
+          onChange={(e) => updateImageUrl(e.target.value)}
           className="pony-input"
           placeholder="/uploads/rewards/reward-xxx.webp"
         />

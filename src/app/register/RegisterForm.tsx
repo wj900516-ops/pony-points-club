@@ -1,24 +1,45 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { registerAction, type ActionState } from "@/app/actions/auth";
+import { useState, type FormEvent } from "react";
+import { registerAction } from "@/app/actions/auth";
 
 export default function RegisterForm() {
-  const router = useRouter();
-  const [state, formAction, isPending] = useActionState<ActionState, FormData>(
-    registerAction,
-    undefined
+  const [error, setError] = useState<string | null>(null);
+  const [phase, setPhase] = useState<"idle" | "submitting" | "redirecting">(
+    "idle"
   );
 
-  useEffect(() => {
-    if (state?.success) {
-      router.replace("/my-points");
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (phase !== "idle") return;
+
+    setError(null);
+    setPhase("submitting");
+
+    const fd = new FormData(e.currentTarget);
+    try {
+      const result = await registerAction(undefined, fd);
+      if (result?.error) {
+        setError(result.error);
+        setPhase("idle");
+        return;
+      }
+      if (result?.success) {
+        setPhase("redirecting");
+        // 硬跳转：避免 RSC redirect 与 useActionState 竞态导致 /register 空壳
+        window.location.assign("/my-points");
+        return;
+      }
+      setError("注册失败，请稍后重试");
+      setPhase("idle");
+    } catch {
+      setError("网络异常，请稍后重试");
+      setPhase("idle");
     }
-  }, [state?.success, router]);
+  }
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-4">
       <div>
         <label className="pony-label" htmlFor="displayName">
           昵称
@@ -31,6 +52,7 @@ export default function RegisterForm() {
           maxLength={40}
           className="pony-input"
           placeholder="你的昵称"
+          disabled={phase !== "idle"}
         />
       </div>
       <div>
@@ -45,6 +67,7 @@ export default function RegisterForm() {
           required
           className="pony-input"
           placeholder="you@example.com"
+          disabled={phase !== "idle"}
         />
       </div>
       <div>
@@ -60,19 +83,29 @@ export default function RegisterForm() {
           minLength={8}
           className="pony-input"
           placeholder="至少 8 位"
+          disabled={phase !== "idle"}
         />
       </div>
-      {state?.error && (
+      {error && (
         <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
-          {state.error}
+          {error}
+        </p>
+      )}
+      {phase === "redirecting" && (
+        <p className="rounded-lg bg-pony-purple/10 px-3 py-2 text-sm text-pony-purpleDeep">
+          注册成功，正在进入我的积分…
         </p>
       )}
       <button
         type="submit"
         className="pony-btn-primary w-full"
-        disabled={isPending}
+        disabled={phase !== "idle"}
       >
-        {isPending ? "注册中…" : "注册"}
+        {phase === "submitting"
+          ? "注册中…"
+          : phase === "redirecting"
+            ? "跳转中…"
+            : "注册"}
       </button>
     </form>
   );
