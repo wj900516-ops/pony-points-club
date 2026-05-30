@@ -9,6 +9,7 @@ import RewardManager from "@/components/admin/RewardManager";
 import UserManager from "@/components/admin/UserManager";
 import RedemptionManager from "@/components/admin/RedemptionManager";
 import AuditLogPanel from "@/components/admin/AuditLogPanel";
+import PointTierManager from "@/components/admin/PointTierManager";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +22,7 @@ export default async function AdminPage() {
 
   const owner = isOwner(user.role);
 
-  const [bosses, rewards, users, redemptions, auditLogs] = await Promise.all([
+  const [bosses, rewards, users, redemptions, auditLogs, pointTiers] = await Promise.all([
     prisma.boss.findMany({
       orderBy: { createdAt: "asc" },
       include: { user: { select: { email: true } } },
@@ -32,6 +33,7 @@ export default async function AdminPage() {
       : Promise.resolve([]),
     fetchRedemptions(),
     fetchAuditLogs(),
+    prisma.pointTier.findMany({ orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] }),
   ]);
 
   const bossData = bosses.map((b) => ({
@@ -62,6 +64,15 @@ export default async function AdminPage() {
     role: u.role,
   }));
 
+  const pointTierData = pointTiers.map((t) => ({
+    id: t.id,
+    label: t.label,
+    priceAmount: t.priceAmount.toString(),
+    points: t.points.toString(),
+    sortOrder: t.sortOrder,
+    isActive: t.isActive,
+  }));
+
   // 兑换管理用：活跃老板 + 上架商品
   const activeBosses = bossData
     .filter((b) => b.isActive && !b.deletedAt)
@@ -89,6 +100,11 @@ export default async function AdminPage() {
       <section>
         <h2 className="mb-3 text-lg font-bold text-slate-700">🐎 老板管理</h2>
         <BossManager bosses={bossData} />
+      </section>
+
+      <section>
+        <h2 className="mb-3 text-lg font-bold text-slate-700">积分档位管理</h2>
+        <PointTierManager tiers={pointTierData} />
       </section>
 
       <section>

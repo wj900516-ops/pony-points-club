@@ -129,6 +129,28 @@ async function main() {
   }
   console.log(`✅ 老板：${bossNames.join("、")}`);
 
+  const pointTiers = [
+    { label: "49.9", priceAmount: "49.90", points: "0.20", sortOrder: 10 },
+    { label: "188", priceAmount: "188.00", points: "1.00", sortOrder: 20 },
+    { label: "388", priceAmount: "388.00", points: "2.00", sortOrder: 30 },
+  ];
+  for (const tier of pointTiers) {
+    const existing = await prisma.pointTier.findFirst({
+      where: { label: tier.label, priceAmount: tier.priceAmount },
+    });
+    if (!existing) {
+      await prisma.pointTier.create({
+        data: {
+          ...tier,
+          isActive: true,
+          createdById: owner.id,
+          updatedById: owner.id,
+        },
+      });
+    }
+  }
+  console.log(`✅ 积分档位：${pointTiers.map((t) => `${t.label} -> ${t.points}`).join("、")}`);
+
   const rewards = [
     {
       name: "限定小马徽章",

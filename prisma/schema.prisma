@@ -50,6 +50,8 @@ model User {
   boss               Boss?              @relation("BossAccount")
   // 由该用户操作的兑换
   redemptions        RewardRedemption[] @relation("RedemptionCreatedBy")
+  pointTierCreated   PointTier[]        @relation("PointTierCreatedBy")
+  pointTierUpdated   PointTier[]        @relation("PointTierUpdatedBy")
   // 该用户产生的审计日志
   auditLogs           AuditLog[]           @relation("AuditOperator")
   passwordResetTokens PasswordResetToken[]
@@ -103,6 +105,26 @@ model Boss {
   @@map("bosses")
 }
 
+model PointTier {
+  id          String   @id @default(cuid())
+  label       String
+  priceAmount Decimal  @db.Decimal(10, 2)
+  points      Decimal  @db.Decimal(10, 2)
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdById String?
+  updatedById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  createdBy    User?              @relation("PointTierCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy    User?              @relation("PointTierUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  transactions PointTransaction[]
+
+  @@index([isActive, sortOrder])
+  @@map("point_tiers")
+}
+
 model PointTransaction {
   id     String          @id @default(cuid())
   bossId String
@@ -136,12 +158,17 @@ model PointTransaction {
   rewardItemId String?
   rewardItem   RewardItem? @relation(fields: [rewardItemId], references: [id], onDelete: SetNull)
 
+  // 固定积分档位关联；旧流水为 null，仍用 priceTier/pointsDelta 展示
+  tierId    String?
+  pointTier PointTier? @relation(fields: [tierId], references: [id], onDelete: SetNull)
+
   boss      Boss  @relation(fields: [bossId], references: [id], onDelete: Cascade)
   createdBy User  @relation("TxCreatedBy", fields: [createdById], references: [id])
   voidedBy  User? @relation("TxVoidedBy", fields: [voidedById], references: [id], onDelete: SetNull)
 
   @@index([bossId, createdAt])
   @@index([status])
+  @@index([tierId])
   @@map("point_transactions")
 }
 

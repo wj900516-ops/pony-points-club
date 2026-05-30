@@ -2,7 +2,6 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { POINT_TIER_LIST } from "@/lib/points";
 import { trimNum, formatDateTime } from "@/lib/format";
 import { fetchBossHistory, type HistoryRow } from "@/app/actions/history";
 import {
@@ -18,14 +17,23 @@ export interface BossView {
   boundLabel?: string | null;
 }
 
+export interface PointTierView {
+  id: string;
+  label: string;
+  priceAmount: string;
+  points: string;
+}
+
 export default function BossCard({
   boss,
   isStaff,
   isOwner = false,
+  pointTiers = [],
 }: {
   boss: BossView;
   isStaff: boolean;
   isOwner?: boolean;
+  pointTiers?: PointTierView[];
 }) {
   const router = useRouter();
   const [showHistory, setShowHistory] = useState(false);
@@ -66,13 +74,13 @@ export default function BossCard({
     if (showHistory) await loadHistory();
   }
 
-  async function handleAddTier(tierKey: string) {
+  async function handleAddTier(tierId: string) {
     if (submittingTier) return;
     setMsg(null);
-    setSubmittingTier(tierKey);
+    setSubmittingTier(tierId);
     const fd = new FormData();
     fd.set("bossId", boss.id);
-    fd.set("tier", tierKey);
+    fd.set("tierId", tierId);
     try {
       const res = await addPointsAction(fd);
       if (!res.ok) return setMsg(res.error || "操作失败");
@@ -165,18 +173,21 @@ export default function BossCard({
           <div>
             <p className="mb-2 text-xs font-medium text-slate-500">固定档位加分</p>
             <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-              {POINT_TIER_LIST.map((t) => (
+              {pointTiers.length === 0 && (
+                <p className="text-sm text-slate-400">暂无可用积分档位</p>
+              )}
+              {pointTiers.map((t) => (
                 <button
-                  key={t.key}
+                  key={t.id}
                   disabled={submittingTier !== null || pending}
-                  onClick={() => handleAddTier(t.key)}
+                  onClick={() => handleAddTier(t.id)}
                   className="pony-btn-pink w-full sm:w-auto"
                 >
-                  {submittingTier === t.key ? (
+                  {submittingTier === t.id ? (
                     "提交中…"
                   ) : (
                     <>
-                      {t.price}{" "}
+                      {t.label || trimNum(t.priceAmount)}{" "}
                       <span className="opacity-80">(+{trimNum(t.points)}分)</span>
                     </>
                   )}

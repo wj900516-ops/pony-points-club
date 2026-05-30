@@ -143,6 +143,10 @@ const ACTION_LABEL: Record<string, string> = {
   POINT_MANUAL_ADD: "调整积分",
   POINT_MANUAL_DEDUCT: "调整积分",
   POINT_VOID: "撤销积分",
+  POINT_TIER_CREATE: "添加积分档位",
+  POINT_TIER_UPDATE: "修改积分档位",
+  POINT_TIER_DISABLE: "停用积分档位",
+  POINT_TIER_RESTORE: "恢复积分档位",
 };
 function summarize(action: string, detail: unknown): string {
   const d = (detail ?? {}) as Record<string, unknown>;
@@ -167,6 +171,11 @@ function summarize(action: string, detail: unknown): string {
       return `${d.reason ?? ""}`;
     case "REDEEM":
       return `${d.rewardName ?? ""} ×${d.quantity ?? 1}（-${d.pointsSpent ?? ""}分）`;
+    case "POINT_TIER_CREATE":
+    case "POINT_TIER_UPDATE":
+    case "POINT_TIER_DISABLE":
+    case "POINT_TIER_RESTORE":
+      return `${d.label ?? ""} ${d.priceAmount ?? ""} / +${d.points ?? ""}分`;
     default:
       return "";
   }

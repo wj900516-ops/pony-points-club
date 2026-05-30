@@ -34,7 +34,24 @@ export const bossUpdateSchema = z.object({
 
 export const addPointsSchema = z.object({
   bossId: z.string().min(1),
-  tier: z.enum(["T49", "T188", "T388"]),
+  tierId: z.string().min(1),
+});
+
+export const pointTierSchema = z.object({
+  label: z.string().trim().min(1, "请填写档位名称").max(40, "档位名称过长"),
+  priceAmount: z.coerce
+    .number({ invalid_type_error: "请输入消费金额" })
+    .positive("消费金额必须大于 0")
+    .max(1000000, "消费金额过大"),
+  points: z.coerce
+    .number({ invalid_type_error: "请输入增加积分" })
+    .positive("增加积分必须大于 0")
+    .max(100000, "增加积分过大"),
+  sortOrder: z.coerce.number().int("排序必须是整数").min(0, "排序不能为负").max(100000),
+});
+
+export const pointTierIdSchema = z.object({
+  id: z.string().min(1),
 });
 
 const rewardImageUrlSchema = z

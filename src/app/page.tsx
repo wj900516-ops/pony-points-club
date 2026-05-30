@@ -2,18 +2,21 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { resolveRewardImageForDisplay } from "@/lib/reward-image-url";
 import { trimNum } from "@/lib/format";
-import { POINT_TIER_LIST } from "@/lib/points";
 
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  const [rewards, bossCount] = await Promise.all([
+  const [rewards, bossCount, pointTiers] = await Promise.all([
     prisma.rewardItem.findMany({
       where: { isActive: true },
       orderBy: { createdAt: "desc" },
       take: 4,
     }),
     prisma.boss.count({ where: { isActive: true, deletedAt: null } }),
+    prisma.pointTier.findMany({
+      where: { isActive: true },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+    }),
   ]);
 
   return (
@@ -101,10 +104,10 @@ export default async function Home() {
       <section className="rounded-2xl border border-amber-200/60 bg-amber-50/50 p-6">
         <h2 className="text-xl font-bold text-slate-800">积分规则</h2>
         <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-          {POINT_TIER_LIST.map((t) => (
-            <div key={t.key} className="rounded-xl bg-white/80 p-4 text-center">
-              <div className="text-lg font-black text-slate-700">{t.price}</div>
-              <div className="mt-1 text-sm text-pony-pinkDeep">= {trimNum(t.points)} 分</div>
+          {pointTiers.map((t) => (
+            <div key={t.id} className="rounded-xl bg-white/80 p-4 text-center">
+              <div className="text-lg font-black text-slate-700">{t.label}</div>
+              <div className="mt-1 text-sm text-pony-pinkDeep">= {trimNum(t.points.toString())} 分</div>
             </div>
           ))}
         </div>

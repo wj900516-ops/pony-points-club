@@ -1,16 +1,18 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import BossCard, { type BossView } from "@/components/BossCard";
+import BossCard, { type BossView, type PointTierView } from "@/components/BossCard";
 
 export default function BossBoard({
   bosses,
   isStaff,
   isOwner,
+  pointTiers,
 }: {
   bosses: BossView[];
   isStaff: boolean;
   isOwner: boolean;
+  pointTiers: PointTierView[];
 }) {
   const [query, setQuery] = useState("");
 
@@ -47,6 +49,7 @@ export default function BossBoard({
               boss={boss}
               isStaff={isStaff}
               isOwner={isOwner}
+              pointTiers={pointTiers}
             />
           ))}
         </div>

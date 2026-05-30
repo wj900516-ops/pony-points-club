@@ -5,7 +5,6 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireStaff, AuthError, ForbiddenError } from "@/lib/permissions";
 import { addPointsSchema, customAdjustSchema, voidTransactionSchema } from "@/lib/validations";
-import { getTier } from "@/lib/points";
 import { writeAudit } from "@/lib/audit";
 
 export type MutationResult = { ok: boolean; error?: string };
@@ -31,14 +30,17 @@ export async function addPointsAction(
 
   const parsed = addPointsSchema.safeParse({
     bossId: formData.get("bossId"),
-    tier: formData.get("tier"),
+    tierId: formData.get("tierId"),
   });
   if (!parsed.success) {
     return { ok: false, error: "参数有误" };
   }
 
-  const tier = getTier(parsed.data.tier);
+  const tier = await prisma.pointTier.findUnique({
+    where: { id: parsed.data.tierId },
+  });
   if (!tier) return { ok: false, error: "无效的积分档位" };
+  if (!tier.isActive) return { ok: false, error: "该积分档位已停用" };
 
   const boss = await prisma.boss.findUnique({
     where: { id: parsed.data.bossId },
@@ -55,7 +57,8 @@ export async function addPointsAction(
       data: {
         bossId: boss.id,
         type: "PURCHASE",
-        priceTier: new Prisma.Decimal(tier.price),
+        tierId: tier.id,
+        priceTier: new Prisma.Decimal(tier.priceAmount),
         pointsAdded: delta,
         pointsDelta: delta,
         status: "ACTIVE",

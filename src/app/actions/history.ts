@@ -31,6 +31,7 @@ export async function fetchBossHistory(bossId: string): Promise<HistoryRow[]> {
       createdBy: { select: { displayName: true, email: true } },
       voidedBy: { select: { displayName: true, email: true } },
       rewardItem: { select: { name: true } },
+      pointTier: { select: { label: true, priceAmount: true } },
     },
   });
 
@@ -39,7 +40,10 @@ export async function fetchBossHistory(bossId: string): Promise<HistoryRow[]> {
     createdAt: r.createdAt.toISOString(),
     type: r.type,
     typeLabel: transactionTypeLabel(r.type),
-    priceTier: r.priceTier ? r.priceTier.toString() : null,
+    priceTier:
+      r.pointTier?.label ||
+      r.pointTier?.priceAmount.toString() ||
+      (r.priceTier ? r.priceTier.toString() : null),
     rewardName: r.rewardItem?.name ?? null,
     pointsDelta: r.pointsDelta.toString(),
     status: r.status,

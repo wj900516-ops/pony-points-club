@@ -16,13 +16,17 @@ export type AuditAction =
   | "POINT_MANUAL_ADD"
   | "POINT_MANUAL_DEDUCT"
   | "POINT_VOID"
-  | "REDEEM";
+  | "REDEEM"
+  | "POINT_TIER_CREATE"
+  | "POINT_TIER_UPDATE"
+  | "POINT_TIER_DISABLE"
+  | "POINT_TIER_RESTORE";
 
 type Client = Prisma.TransactionClient | typeof prisma;
 
 interface WriteAuditInput {
   action: AuditAction;
-  entityType: "Boss" | "User" | "RewardItem" | "PointTransaction";
+  entityType: "Boss" | "User" | "RewardItem" | "PointTransaction" | "PointTier";
   entityId?: string | null;
   operatorId: string;
   detail?: Record<string, unknown>;

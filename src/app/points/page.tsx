@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { isStaff, isOwner } from "@/lib/permissions";
 import BossBoard from "@/components/BossBoard";
-import type { BossView } from "@/components/BossCard";
+import type { BossView, PointTierView } from "@/components/BossCard";
 
 export const dynamic = "force-dynamic";
 
@@ -11,11 +11,17 @@ export default async function PointsPage() {
   const staff = !!user && isStaff(user.role);
   const owner = !!user && isOwner(user.role);
 
-  const bosses = await prisma.boss.findMany({
-    where: { isActive: true, deletedAt: null },
-    orderBy: [{ totalPoints: "desc" }, { createdAt: "asc" }],
-    include: { user: { select: { email: true } } },
-  });
+  const [bosses, pointTiers] = await Promise.all([
+    prisma.boss.findMany({
+      where: { isActive: true, deletedAt: null },
+      orderBy: [{ totalPoints: "desc" }, { createdAt: "asc" }],
+      include: { user: { select: { email: true } } },
+    }),
+    prisma.pointTier.findMany({
+      where: { isActive: true },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+    }),
+  ]);
 
   const data: BossView[] = bosses.map((b) => ({
     id: b.id,
@@ -23,6 +29,13 @@ export default async function PointsPage() {
     totalPoints: b.totalPoints.toString(),
     // 仅 staff 展示绑定信息
     boundLabel: staff && b.user ? b.user.email : null,
+  }));
+
+  const tierData: PointTierView[] = pointTiers.map((t) => ({
+    id: t.id,
+    label: t.label,
+    priceAmount: t.priceAmount.toString(),
+    points: t.points.toString(),
   }));
 
   return (
@@ -36,7 +49,7 @@ export default async function PointsPage() {
         </p>
       </div>
 
-      <BossBoard bosses={data} isStaff={staff} isOwner={owner} />
+      <BossBoard bosses={data} isStaff={staff} isOwner={owner} pointTiers={tierData} />
     </div>
   );
 }
