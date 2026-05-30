@@ -181,3 +181,25 @@ npm run test:url-whitelist
 - [ ] `npm run test:url-whitelist` 通过
 - [ ] 390 / 820 / 1440 无横向溢出
 - [ ] 图片上传 Supabase 仍正常
+# P3-A auth tests
+
+Run:
+
+```bash
+npm run test:auth
+```
+
+Expected:
+
+- reset token generation/hash works
+- expired tokens are rejected
+- used tokens cannot be reused
+- forgot-password public response does not reveal whether an email exists
+- session maxAge is 30 days / 2592000 seconds
+
+Manual reset link test:
+
+1. In local development, leave `RESEND_API_KEY` empty.
+2. Start the app and submit `/forgot-password`.
+3. Read the reset link from the server log.
+4. Open `/reset-password?token=...`, set a new password, and confirm it redirects to `/login?reset=1`.

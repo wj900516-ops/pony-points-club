@@ -51,9 +51,25 @@ model User {
   // 由该用户操作的兑换
   redemptions        RewardRedemption[] @relation("RedemptionCreatedBy")
   // 该用户产生的审计日志
-  auditLogs          AuditLog[]         @relation("AuditOperator")
+  auditLogs           AuditLog[]           @relation("AuditOperator")
+  passwordResetTokens PasswordResetToken[]
 
   @@map("users")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("password_reset_tokens")
 }
 
 model Boss {

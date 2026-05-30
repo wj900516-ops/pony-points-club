@@ -87,6 +87,16 @@ SEED_OWNER_PASSWORD="YourStrongPassword123"
 npm run db:seed
 ```
 
+## P3-A Auth Experience
+
+- Login and register sessions use an httpOnly cookie with a 30 day max age.
+- `/forgot-password` sends a reset link. `/reset-password?token=...` lets the user set a new password.
+- Reset tokens are generated with crypto, stored only as sha256 hashes, expire after 1 hour, and can be used once.
+- Successful reset redirects to `/login?reset=1`; users must log in again.
+- Email uses Resend: set `EMAIL_PROVIDER=resend`, `RESEND_API_KEY`, and `EMAIL_FROM=小马积分俱乐部 <noreply@xiaolinmlp.com>`.
+- In local development without `RESEND_API_KEY`, the reset link is printed in the server log. Production must configure `RESEND_API_KEY`.
+- This project still does not require registration email verification: new users default to `VIEWER`, viewers have no admin access, and Boss binding is confirmed manually by owner/admin.
+
 **方式 B — 数据库手动设置**
 1. 先通过 `/register` 注册一个普通账号（role 默认为 `VIEWER`）。
 2. 在 PostgreSQL 中执行：
