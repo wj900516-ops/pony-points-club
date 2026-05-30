@@ -28,9 +28,6 @@ export default async function LoginPage({
         )}
         <LoginForm />
         <div className="mt-4 flex flex-col gap-2 text-center text-sm text-slate-500">
-          <Link href="/forgot-password" className="font-medium text-pony-pinkDeep">
-            忘记密码？
-          </Link>
           <p>
             还没有账号？{" "}
             <Link href="/register" className="font-medium text-pony-pinkDeep">

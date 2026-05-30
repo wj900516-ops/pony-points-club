@@ -15,6 +15,11 @@ export async function forgotPasswordAction(
   formData: FormData
 ): Promise<PasswordResetActionState> {
   try {
+    if (!process.env.RESEND_API_KEY) {
+      return {
+        error: "密码重置功能暂未开放，请联系管理员重置密码。",
+      };
+    }
     const result = await requestPasswordReset(formData.get("email"));
     if (!result.ok) return { error: result.error };
     return { success: true, message: result.message };
