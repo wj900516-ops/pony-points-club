@@ -34,11 +34,15 @@ export default function UserManager({
     fd.set("userId", userId);
     fd.set("role", role);
     startTransition(async () => {
-      const res = await updateUserRoleAction(fd);
-      if (!res.ok) setMsg(res.error || "操作失败");
-      else {
-        setMsg("✅ 已更新角色");
-        router.refresh();
+      try {
+        const res = await updateUserRoleAction(fd);
+        if (!res.ok) setMsg(res.error || "操作失败");
+        else {
+          setMsg("✅ 角色已更新，对方刷新页面后即可生效（无需重新登录）");
+          router.refresh();
+        }
+      } catch {
+        setMsg("网络异常，请稍后重试");
       }
     });
   }

@@ -34,7 +34,7 @@
 
 ### 2. 注册 viewer
 
-- [ ] `/register` 注册新账号 → 成功进入 `/points`
+- [ ] `/register` 注册新账号 → 成功进入 `/my-points`（未绑定时显示空状态）
 - [ ] 角色为访客（导航或个人信息可见）
 
 ### 3. viewer 权限
@@ -110,5 +110,74 @@ curl -X POST http://localhost:3000/api/uploads/rewards \
 | 存储实现 | `src/lib/storage/reward-image-storage.ts`（local / Supabase） |
 | 上传校验 | `src/lib/reward-upload.ts` |
 | 图片 URL 白名单 | `src/lib/reward-image-url.ts` |
+| URL 白名单自动测试 | `npm run test:url-whitelist` |
 | 上传 UI | `src/components/admin/RewardImageUpload.tsx` |
 | 响应式导航 | `src/components/NavBarClient.tsx` |
+
+---
+
+## Release Candidate QA
+
+上线前**必跑**闭环（Codex computer use 或人工）。测试域名示例：`https://xiaolinmlp.com`。
+
+### 准备
+
+- owner 账号（seed 或生产 owner）
+- 固定测试密码示例：`QaTest12345!`
+- 时间戳：`TS=$(date +%Y%m%d%H%M%S)` 或手动记当前时间
+
+### 1. 注册 QA 用户
+
+1. 打开 `/register`
+2. 注册：
+   - 邮箱：`qa-member-[timestamp]@example.com`
+   - 密码：`QaTest12345!`
+   - 昵称：`QA Member`
+3. **预期**：注册成功后自动跳转 `/my-points`，按钮不卡在「注册中…」
+4. **预期**：显示「你的账号还没有绑定积分档案」
+5. **预期**：不能访问 `/admin`；`/points` 无加分按钮
+
+### 2. Boss 绑定闭环
+
+1. owner 登录 → `/admin` → 老板管理
+2. 新建老板：`QA Bind Boss [timestamp]`
+3. 点击「绑定账号」→ 搜索 QA 用户邮箱
+4. **预期**：搜索结果显示邮箱、昵称、角色（访客）
+5. 点击「绑定」→ **预期**：老板行显示已绑定邮箱
+6. 退出 owner，QA 用户登录
+7. 打开 `/my-points`
+8. **预期**：显示 QA Bind Boss 名字、积分、历史（只读，无管理按钮）
+9. owner 登录 → 解绑 QA 用户
+10. QA 用户重新打开 `/my-points`
+11. **预期**：回到未绑定空状态
+12. **预期**：最近操作记录有「绑定账号」「解绑账号」
+
+### 3. 管理员升降级
+
+1. owner 登录 → 用户管理
+2. 将 QA 用户「设为员工」
+3. **预期**：提示「角色已更新，对方刷新页面后即可生效」
+4. QA 用户刷新或访问 `/admin` → **预期**：可进入后台
+5. owner 将 QA 用户「降为访客」
+6. QA 用户刷新 → **预期**：访问 `/admin` 被重定向
+7. **预期**：owner 行显示「不可修改」（不能自降级）
+8. **预期**：最近操作记录有「提升为员工」「降级为访客」
+
+### 4. 图片 URL 白名单（自动）
+
+本地或 CI 运行：
+
+```bash
+npm run test:url-whitelist
+```
+
+**预期**：7 个禁止域名 + 4 个允许路径全部通过。
+
+### 5. 快速检查清单
+
+- [ ] 注册 → `/my-points` 不卡 pending
+- [ ] 绑定 / 解绑 /my-points 正确
+- [ ] 升降级后 `/admin` 权限正确
+- [ ] `npm run test:url-whitelist` 通过
+- [ ] 390 / 820 / 1440 无横向溢出
+- [ ] 图片上传 Supabase 仍正常

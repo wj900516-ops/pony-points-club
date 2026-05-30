@@ -35,6 +35,7 @@ async function requireStaffOrDeny(): Promise<
 
 function revalidate() {
   revalidatePath("/points");
+  revalidatePath("/my-points");
   revalidatePath("/admin");
 }
 

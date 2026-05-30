@@ -12,11 +12,11 @@ export type NavUser = {
 export default function NavBarClient({
   user,
   staff,
-  hasBoundBoss = false,
+  showMyPoints = false,
 }: {
   user: NavUser | null;
   staff: boolean;
-  hasBoundBoss?: boolean;
+  showMyPoints?: boolean;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -35,7 +35,7 @@ export default function NavBarClient({
       <Link href="/rewards" className="pony-btn-ghost w-full sm:w-auto" onClick={closeMenu}>
         兑换展示
       </Link>
-      {hasBoundBoss && (
+      {showMyPoints && (
         <Link href="/my-points" className="pony-btn-ghost w-full sm:w-auto" onClick={closeMenu}>
           我的积分
         </Link>

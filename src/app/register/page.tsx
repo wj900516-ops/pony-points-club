@@ -5,7 +5,7 @@ import RegisterForm from "./RegisterForm";
 
 export default async function RegisterPage() {
   const session = await getSession();
-  if (session) redirect("/points");
+  if (session) redirect("/my-points");
 
   return (
     <div className="mx-auto w-full max-w-md px-1">

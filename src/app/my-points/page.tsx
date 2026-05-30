@@ -26,7 +26,7 @@ export default async function MyPointsPage() {
 
       {!boss ? (
         <div className="pony-card p-8 text-center">
-          <p className="text-slate-500">你的账号还没有绑定积分档案。</p>
+          <p className="text-slate-500">你的账号还没有绑定积分档案</p>
           <p className="mt-1 text-sm text-slate-400">
             请联系俱乐部管理员为你绑定后即可查看积分与历史。
           </p>

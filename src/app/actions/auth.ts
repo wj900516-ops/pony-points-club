@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { destroySession } from "@/lib/auth";
 import { loginUser, registerUser } from "@/lib/auth-credentials";
 
-export type ActionState = { error?: string } | undefined;
+export type ActionState = { error?: string; success?: boolean } | undefined;
 
 export async function registerAction(
   _prev: ActionState,
@@ -16,7 +16,8 @@ export async function registerAction(
     displayName: formData.get("displayName"),
   });
   if (!result.ok) return { error: result.error };
-  redirect("/points");
+  // 不在此处 redirect：redirect() 会抛 NEXT_REDIRECT，导致客户端 pending 无法结束
+  return { success: true };
 }
 
 export async function loginAction(

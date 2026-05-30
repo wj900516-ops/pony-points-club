@@ -1,23 +1,21 @@
 "use client";
 
-import { useActionState } from "react";
-import { useFormStatus } from "react-dom";
+import { useActionState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { registerAction, type ActionState } from "@/app/actions/auth";
 
-function SubmitBtn() {
-  const { pending } = useFormStatus();
-  return (
-    <button type="submit" className="pony-btn-primary w-full" disabled={pending}>
-      {pending ? "注册中…" : "注册"}
-    </button>
-  );
-}
-
 export default function RegisterForm() {
-  const [state, formAction] = useActionState<ActionState, FormData>(
+  const router = useRouter();
+  const [state, formAction, isPending] = useActionState<ActionState, FormData>(
     registerAction,
     undefined
   );
+
+  useEffect(() => {
+    if (state?.success) {
+      router.replace("/my-points");
+    }
+  }, [state?.success, router]);
 
   return (
     <form action={formAction} className="space-y-4">
@@ -69,7 +67,13 @@ export default function RegisterForm() {
           {state.error}
         </p>
       )}
-      <SubmitBtn />
+      <button
+        type="submit"
+        className="pony-btn-primary w-full"
+        disabled={isPending}
+      >
+        {isPending ? "注册中…" : "注册"}
+      </button>
     </form>
   );
 }

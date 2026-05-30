@@ -24,6 +24,12 @@ interface BossRow {
 
 type Result = { ok: boolean; error?: string };
 
+const ROLE_LABEL: Record<string, string> = {
+  OWNER: "主理人",
+  ADMIN: "员工",
+  VIEWER: "访客",
+};
+
 export default function BossManager({ bosses }: { bosses: BossRow[] }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -280,22 +286,32 @@ function BossManagerRow({
             </button>
           </div>
           <ul className="mt-2 space-y-1">
-            {results.map((u) => (
+            {results.map((u) => {
+              const boundElsewhere =
+                u.boundBossName && u.boundBossName !== boss.name;
+              const boundHere = u.boundBossName === boss.name;
+              return (
               <li
                 key={u.id}
-                className="flex items-center justify-between gap-2 rounded-md bg-white px-2 py-1 text-sm"
+                className="flex flex-col gap-1 rounded-md bg-white px-2 py-1.5 text-sm sm:flex-row sm:items-center sm:justify-between"
               >
-                <span className="min-w-0 truncate">
-                  {u.email}
-                  {u.boundBossName && (
-                    <span className="ml-1 text-xs text-rose-400">
-                      （已绑 {u.boundBossName}）
-                    </span>
-                  )}
-                </span>
+                <div className="min-w-0">
+                  <p className="break-all font-medium text-slate-700">{u.email}</p>
+                  <p className="text-xs text-slate-500">
+                    {u.displayName} · {ROLE_LABEL[u.role] ?? u.role}
+                    {boundElsewhere && (
+                      <span className="ml-1 text-rose-500">
+                        已绑定「{u.boundBossName}」，不可重复绑定
+                      </span>
+                    )}
+                    {boundHere && (
+                      <span className="ml-1 text-emerald-600">已绑定本老板</span>
+                    )}
+                  </p>
+                </div>
                 <button
-                  className="pony-btn-primary h-8 min-h-0 px-3 py-0 text-xs"
-                  disabled={pending || !!u.boundBossName}
+                  className="pony-btn-primary h-8 min-h-0 shrink-0 px-3 py-0 text-xs"
+                  disabled={pending || boundElsewhere || boundHere}
                   onClick={() => {
                     const fd = new FormData();
                     fd.set("bossId", boss.id);
@@ -306,7 +322,8 @@ function BossManagerRow({
                   绑定
                 </button>
               </li>
-            ))}
+            );
+            })}
             {results.length === 0 && userQuery && !searching && (
               <li className="px-2 py-1 text-xs text-slate-400">无匹配用户</li>
             )}
