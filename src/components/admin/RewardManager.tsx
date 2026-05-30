@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { trimNum } from "@/lib/format";
-import { validateRewardImageUrl } from "@/lib/reward-image-url";
+import draftImageUrlToggleError from "@/lib/reward-image-url-client";
 import {
   createRewardAction,
   updateRewardAction,
@@ -56,24 +56,26 @@ export default function RewardManager({ rewards }: { rewards: RewardRow[] }) {
     });
   }
 
-  function rejectDraftImageUrl(reward: RewardRow): string | null {
+  function getDraftImageUrlError(reward: RewardRow): string | null {
     if (editId !== reward.id) return null;
-    const draft = editImageDrafts[reward.id] ?? reward.imageUrl;
-    if (!draft.trim()) return null;
-    const check = validateRewardImageUrl(draft);
-    if (!check.ok) return check.error;
-    return null;
+    const draft = String(editImageDrafts[reward.id] ?? reward.imageUrl ?? "").trim();
+    if (!draft) return null;
+    return draftImageUrlToggleError(draft);
   }
 
   function handleToggle(reward: RewardRow) {
-    const draftError = rejectDraftImageUrl(reward);
-    if (draftError) {
-      setMsg(draftError);
-      return;
+    try {
+      const draftError = getDraftImageUrlError(reward);
+      if (draftError) {
+        setMsg(draftError);
+        return;
+      }
+      const fd = new FormData();
+      fd.set("id", reward.id);
+      run(() => toggleRewardActiveAction(fd));
+    } catch {
+      setMsg("请先修正图片链接后再上架/下架");
     }
-    const fd = new FormData();
-    fd.set("id", reward.id);
-    run(() => toggleRewardActiveAction(fd));
   }
 
   return (

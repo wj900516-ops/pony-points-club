@@ -1,8 +1,8 @@
-/**
- * 商品图片 URL 白名单自动测试
- * 运行：npm run test:url-whitelist
- */
 import { validateRewardImageUrl } from "../src/lib/reward-image-url";
+import {
+  draftImageUrlToggleError,
+  validateRewardImageUrlClient,
+} from "../src/lib/reward-image-url-client";
 import { rewardSchema } from "../src/lib/validations";
 
 const REJECT_URLS = [
@@ -36,87 +36,97 @@ function baseRewardPayload(imageUrl: string) {
 let failures = 0;
 
 function fail(msg: string) {
-  console.error(`✗ ${msg}`);
+  console.error(`FAIL ${msg}`);
   failures++;
 }
 
 function pass(msg: string) {
-  console.log(`✓ ${msg}`);
+  console.log(`PASS ${msg}`);
 }
 
 console.log("=== validateRewardImageUrl ===\n");
 
 for (const url of REJECT_URLS) {
   const result = validateRewardImageUrl(url);
-  if (result.ok) {
-    fail(`应拒绝但通过: ${url}`);
-  } else {
-    pass(`拒绝: ${url}`);
-  }
+  if (result.ok) fail(`should reject but allowed: ${url}`);
+  else pass(`rejected: ${url}`);
 }
 
 for (const url of ALLOW_URLS) {
   const result = validateRewardImageUrl(url);
-  if (!result.ok) {
-    fail(`应允许但拒绝: ${url} — ${result.error}`);
-  } else {
-    pass(`允许: ${url}`);
-  }
+  if (!result.ok) fail(`should allow but rejected: ${url} - ${result.error}`);
+  else pass(`allowed: ${url}`);
 }
 
-console.log("\n=== rewardSchema（服务端写入校验）===\n");
+console.log("\n=== rewardSchema server write validation ===\n");
 
 for (const url of REJECT_URLS) {
   const parsed = rewardSchema.safeParse(baseRewardPayload(url));
-  if (parsed.success) {
-    fail(`schema 应拒绝但通过: ${url}`);
-  } else {
-    pass(`schema 拒绝: ${url}`);
-  }
+  if (parsed.success) fail(`schema should reject but allowed: ${url}`);
+  else pass(`schema rejected: ${url}`);
 }
 
 for (const url of ALLOW_URLS) {
   const parsed = rewardSchema.safeParse(baseRewardPayload(url));
   if (!parsed.success) {
     const msg = parsed.error.errors[0]?.message ?? "unknown";
-    fail(`schema 应允许但拒绝: ${url} — ${msg}`);
+    fail(`schema should allow but rejected: ${url} - ${msg}`);
   } else {
-    pass(`schema 允许: ${url}`);
+    pass(`schema allowed: ${url}`);
   }
 }
 
-console.log("\n=== 商品上下架策略（纯逻辑）===\n");
+console.log("\n=== toggle policy pure logic ===\n");
 
-// toggleRewardActiveAction 只应接收 id，不解析 imageUrl 表单字段
 const toggleFormFields = ["id"];
-pass(`上下架 action 仅依赖字段: ${toggleFormFields.join(", ")}`);
+pass(`toggle action only depends on fields: ${toggleFormFields.join(", ")}`);
 
 for (const url of REJECT_URLS) {
   const draftCheck = validateRewardImageUrl(url);
-  if (draftCheck.ok) {
-    fail(`编辑草稿非法 URL 应被拒绝: ${url}`);
-  } else {
-    pass(`编辑草稿非法 URL 应阻止上下架: ${url}`);
-  }
+  if (draftCheck.ok) fail(`draft invalid URL should be rejected: ${url}`);
+  else pass(`draft invalid URL blocks toggle: ${url}`);
 }
 
-// 模拟：DB 中已存非法 URL 时，rejectIfStoredImageInvalid 等价逻辑
 function rejectIfStoredImageInvalid(imageUrl: string | null): boolean {
   if (!imageUrl?.trim()) return false;
   return !validateRewardImageUrl(imageUrl).ok;
 }
 
 if (rejectIfStoredImageInvalid("https://x.com/test.png")) {
-  pass("DB 已存非法 URL 时上下架应被服务端拒绝");
+  pass("stored invalid URL blocks toggle server-side");
 } else {
-  fail("DB 已存非法 URL 时上下架应被服务端拒绝");
+  fail("stored invalid URL should block toggle server-side");
 }
 
 if (!rejectIfStoredImageInvalid("/uploads/rewards/ok.webp")) {
-  pass("DB 合法 URL 时上下架校验通过");
+  pass("stored valid URL passes toggle validation");
 } else {
-  fail("DB 合法 URL 时上下架校验通过");
+  fail("stored valid URL should pass toggle validation");
 }
 
-console.log(`\n${failures === 0 ? "全部通过" : `失败 ${failures} 项`}`);
+console.log("\n=== client draft validation must not throw ===\n");
+
+for (const url of REJECT_URLS) {
+  try {
+    const error = draftImageUrlToggleError(url);
+    if (!error) fail(`client draft should return an error: ${url}`);
+    else pass(`client draft rejected without throw: ${url}`);
+  } catch {
+    fail(`client draft validation should not throw: ${url}`);
+  }
+}
+
+try {
+  const clientUploadCheck = validateRewardImageUrlClient("/uploads/test.png");
+  if (clientUploadCheck.ok) pass("client allows /uploads/test.png without throw");
+  else {
+    fail(
+      `/uploads/test.png should be allowed by client validation: ${clientUploadCheck.error}`
+    );
+  }
+} catch {
+  fail("validateRewardImageUrlClient('/uploads/test.png') should not throw");
+}
+
+console.log(`\n${failures === 0 ? "ALL PASS" : `FAILURES ${failures}`}`);
 process.exit(failures > 0 ? 1 : 0);
