@@ -121,19 +121,29 @@ export interface AuditRow {
 }
 
 const ACTION_LABEL: Record<string, string> = {
-  BOSS_RENAME: "老板改名",
-  BOSS_ARCHIVE: "归档老板",
+  BOSS_CREATE: "添加老板",
+  BOSS_DELETE: "删除老板",
   BOSS_RESTORE: "恢复老板",
+  BOSS_RENAME: "修改老板名字",
+  BOSS_ARCHIVE: "归档老板",
+  BOSS_UNARCHIVE: "恢复显示",
   BOSS_BIND_USER: "绑定账号",
   BOSS_UNBIND_USER: "解绑账号",
-  ROLE_PROMOTE: "提升为员工",
-  ROLE_DEMOTE: "降级为访客",
-  POINT_MANUAL_ADD: "手动加分",
-  POINT_MANUAL_DEDUCT: "手动扣分",
-  POINT_VOID: "撤销流水",
+  USER_ROLE_UPDATE: "修改用户权限",
+  ROLE_PROMOTE: "修改用户权限",
+  ROLE_DEMOTE: "修改用户权限",
+  REWARD_CREATE: "添加商品",
+  REWARD_UPDATE: "修改商品",
+  REWARD_DELETE: "下架商品",
+  REWARD_ARCHIVE: "下架商品",
+  REWARD_RESTORE: "恢复商品",
+  REDEMPTION_CREATE: "后台兑换",
   REDEEM: "后台兑换",
+  POINT_ADJUST: "调整积分",
+  POINT_MANUAL_ADD: "调整积分",
+  POINT_MANUAL_DEDUCT: "调整积分",
+  POINT_VOID: "撤销积分",
 };
-
 function summarize(action: string, detail: unknown): string {
   const d = (detail ?? {}) as Record<string, unknown>;
   switch (action) {
